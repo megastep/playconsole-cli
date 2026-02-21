@@ -222,15 +222,32 @@ gpc tracks list --output tsv       # Tab-separated
 
 ## 🏆 Wall of Apps
 
-Apps shipped using Play Console CLI:
+**Apps shipped using Play Console CLI:**
 
 <!-- WALL_OF_APPS_START -->
 | App | Creator |
 |-----|---------|
-| [Wally](https://play.google.com/store/apps/details?id=com.androidpoet.wally) | AndroidPoet |
+| [Wally](https://play.google.com/store/apps/details?id=com.androidpoet.wally) | [@AndroidPoet](https://github.com/AndroidPoet) |
 <!-- WALL_OF_APPS_END -->
 
-**Add your app!** Submit a PR to [docs/wall-of-apps.json](docs/wall-of-apps.json)
+<details>
+<summary><b>🚀 Add your app to the Wall!</b></summary>
+
+Using GPC to ship your app? Get featured here!
+
+1. Fork this repo
+2. Edit [`docs/wall-of-apps.json`](docs/wall-of-apps.json)
+3. Add your app:
+```json
+{
+  "app": "Your App Name",
+  "link": "https://play.google.com/store/apps/details?id=your.package",
+  "creator": "YourGitHubUsername"
+}
+```
+4. Submit a PR!
+
+</details>
 
 ---
 
