@@ -240,8 +240,6 @@ gpc tracks list --output tsv       # Tab-separated
 - Base64 encoding for CI/CD secrets
 - No credentials in command history
 
-> ⚠️ **SCAM WARNING:** There is **NO official cryptocurrency, token, or NFT** associated with Play Console CLI. Any tokens using this project's name are unauthorized scams. This is a free, open-source CLI tool — nothing more.
-
 ---
 
 ## 🏆 Wall of Apps
