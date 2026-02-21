@@ -120,7 +120,11 @@ fi
 
 chmod +x "$INSTALL_DIR/playconsole-cli"
 
+# Create gpc alias
+ln -sf "$INSTALL_DIR/playconsole-cli" "$INSTALL_DIR/gpc"
+
 info "Installed playconsole-cli to $INSTALL_DIR/playconsole-cli"
+info "Created alias: gpc -> playconsole-cli"
 
 # Check PATH
 if ! echo "$PATH" | tr ':' '\n' | grep -q "^$INSTALL_DIR$"; then

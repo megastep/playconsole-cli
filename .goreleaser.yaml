@@ -64,13 +64,15 @@ brews:
     repository:
       owner: AndroidPoet
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/AndroidPoet/playconsole-cli
     description: "Fast, lightweight, and scriptable CLI for Google Play Console"
     license: MIT
     install: |
       bin.install "playconsole-cli"
+      bin.install_symlink "playconsole-cli" => "gpc"
     test: |
-      system "#{bin}/playconsole-cli", "version"
+      system "#{bin}/gpc", "version"
 
 nfpms:
   - id: packages
@@ -87,5 +89,14 @@ release:
   github:
     owner: AndroidPoet
     name: playconsole-cli
-  draft: true
+  draft: false
   prerelease: auto
+  footer: |
+    ## Installation
+    ```bash
+    brew tap AndroidPoet/tap && brew install playconsole-cli
+    ```
+    Or use the install script:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/AndroidPoet/playconsole-cli/main/install.sh | bash
+    ```
