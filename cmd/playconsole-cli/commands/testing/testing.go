@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/api/androidpublisher/v3"
+	"google.golang.org/api/googleapi"
 
 	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
@@ -210,13 +211,13 @@ func runInternalSharingUpload(cmd *cobra.Command, args []string) error {
 	var downloadURL string
 
 	if ext == ".aab" {
-		artifact, err := client.GetService().Internalappsharingartifacts.Uploadbundle(client.GetPackageName()).Media(file).Context(ctx).Do()
+		artifact, err := client.GetService().Internalappsharingartifacts.Uploadbundle(client.GetPackageName()).Media(file, googleapi.ContentType("application/octet-stream")).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("upload failed: %w", err)
 		}
 		downloadURL = artifact.DownloadUrl
 	} else {
-		artifact, err := client.GetService().Internalappsharingartifacts.Uploadapk(client.GetPackageName()).Media(file).Context(ctx).Do()
+		artifact, err := client.GetService().Internalappsharingartifacts.Uploadapk(client.GetPackageName()).Media(file, googleapi.ContentType("application/octet-stream")).Context(ctx).Do()
 		if err != nil {
 			return fmt.Errorf("upload failed: %w", err)
 		}

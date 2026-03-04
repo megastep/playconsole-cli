@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/api/androidpublisher/v3"
+	"google.golang.org/api/googleapi"
 
 	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
@@ -113,7 +114,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	output.PrintInfo("Uploading APK: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
 	// Upload APK
-	apk, err := edit.APKs().Upload(client.GetPackageName(), edit.ID()).Media(file).Context(edit.Context()).Do()
+	apk, err := edit.APKs().Upload(client.GetPackageName(), edit.ID()).Media(file, googleapi.ContentType("application/octet-stream")).Context(edit.Context()).Do()
 	if err != nil {
 		return fmt.Errorf("upload failed: %w", err)
 	}

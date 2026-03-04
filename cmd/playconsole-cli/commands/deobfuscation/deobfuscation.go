@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/api/googleapi"
 
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
 	"github.com/AndroidPoet/playconsole-cli/internal/cli"
@@ -104,7 +105,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	// Upload
 	resp, err := edit.DeobfuscationFiles().Upload(
 		client.GetPackageName(), edit.ID(), versionCode, apiType,
-	).Media(file).Context(edit.Context()).Do()
+	).Media(file, googleapi.ContentType("application/octet-stream")).Context(edit.Context()).Do()
 	if err != nil {
 		return fmt.Errorf("failed to upload deobfuscation file: %w", err)
 	}
