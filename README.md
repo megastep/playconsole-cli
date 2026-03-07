@@ -58,6 +58,24 @@ After install, you can use either `playconsole-cli` or the shorter alias `gpc`.
 
 ## ⚡ Quick Start
 
+### One-command setup (recommended)
+
+```bash
+gpc setup --auto
+```
+
+That's it. This will:
+- Install `gcloud` if needed (via Homebrew on macOS, or curl on Linux)
+- Log you into Google Cloud
+- Create a service account and download credentials
+- Open Play Console for the one manual step (granting access)
+- Configure everything automatically
+
+### Manual setup
+
+<details>
+<summary>Prefer to do it yourself?</summary>
+
 **1. Create a service account** ([Google Cloud Console](https://console.cloud.google.com/iam-admin/serviceaccounts))
 ```bash
 mkdir -p ~/.config/gpc
@@ -75,7 +93,9 @@ gpc auth login --credentials ~/.config/gpc/service-account.json
 gpc apps list  # See your apps
 ```
 
-**5. Deploy!** 🎉
+</details>
+
+### Deploy! 🎉
 ```bash
 gpc bundles upload --file app.aab --track internal
 gpc tracks promote --from internal --to production --rollout 10

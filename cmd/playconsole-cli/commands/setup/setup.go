@@ -21,8 +21,14 @@ This wizard will help you:
   1. Create a Google Cloud Service Account
   2. Enable the Google Play Android Developer API
   3. Download and configure your credentials
-  4. Link the service account in Play Console`,
+  4. Link the service account in Play Console
+
+Use --auto to automate steps 1-4 using the gcloud CLI.`,
 	Run: runSetup,
+}
+
+func init() {
+	SetupCmd.Flags().Bool("auto", false, "Automate setup using gcloud CLI (requires gcloud installed and authenticated)")
 }
 
 type step struct {
@@ -60,6 +66,12 @@ var setupSteps = []step{
 }
 
 func runSetup(cmd *cobra.Command, args []string) {
+	autoMode, _ := cmd.Flags().GetBool("auto")
+	if autoMode {
+		runAutoSetup(cmd)
+		return
+	}
+
 	clearScreen()
 	printHeader()
 
@@ -345,4 +357,274 @@ func copyToClipboard(text string) error {
 	}
 	cmd.Stdin = strings.NewReader(text)
 	return cmd.Run()
+}
+
+// runGcloud executes a gcloud command and returns trimmed stdout.
+func runGcloud(args ...string) (string, error) {
+	cmd := exec.Command("gcloud", args...)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+const serviceAccountName = "play-console-cli"
+
+// installGcloud attempts to install the gcloud CLI for the current platform.
+func installGcloud() bool {
+	fmt.Println()
+	switch runtime.GOOS {
+	case "darwin":
+		// Try Homebrew first
+		if _, err := exec.LookPath("brew"); err == nil {
+			fmt.Println("    Installing via Homebrew...")
+			cmd := exec.Command("brew", "install", "--cask", "google-cloud-sdk")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("    Homebrew install failed: %v\n", err)
+				fmt.Println("    Install manually: https://cloud.google.com/sdk/install")
+				return false
+			}
+			fmt.Println("    ✓ gcloud installed via Homebrew")
+			return true
+		}
+		// Fall through to curl installer
+		fmt.Println("    Installing via Google Cloud SDK installer...")
+		cmd := exec.Command("bash", "-c", "curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("    Install failed: %v\n", err)
+			fmt.Println("    Install manually: https://cloud.google.com/sdk/install")
+			return false
+		}
+		fmt.Println("    ✓ gcloud installed")
+		return true
+
+	case "linux":
+		fmt.Println("    Installing via Google Cloud SDK installer...")
+		cmd := exec.Command("bash", "-c", "curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("    Install failed: %v\n", err)
+			fmt.Println("    Install manually: https://cloud.google.com/sdk/install")
+			return false
+		}
+		fmt.Println("    ✓ gcloud installed")
+		return true
+
+	default:
+		fmt.Println("    Auto-install not supported on this platform.")
+		fmt.Println("    Install manually: https://cloud.google.com/sdk/install")
+		return false
+	}
+}
+
+func runAutoSetup(cmd *cobra.Command) {
+	clearScreen()
+
+	fmt.Println("╔═══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║              MAGIC SETUP — AUTOMATED MODE                    ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	reader := bufio.NewReader(os.Stdin)
+
+	// --- Check gcloud ---
+	fmt.Print("==> Checking gcloud CLI... ")
+	gcloudPath, lookErr := exec.LookPath("gcloud")
+	if lookErr != nil {
+		fmt.Println("not found")
+		fmt.Println()
+		fmt.Print("    Install gcloud now? [Y/n]: ")
+		if input := readInput(reader); input == "n" || input == "no" {
+			fmt.Println()
+			fmt.Println("Run 'gpc setup' without --auto for the manual wizard.")
+			return
+		}
+		if !installGcloud() {
+			return
+		}
+		gcloudPath, lookErr = exec.LookPath("gcloud")
+		if lookErr != nil {
+			fmt.Println()
+			fmt.Println("gcloud still not found. You may need to restart your terminal.")
+			fmt.Println("Then try 'gpc setup --auto' again.")
+			return
+		}
+	}
+	_ = gcloudPath
+	fmt.Println("✓")
+
+	// --- Check auth ---
+	fmt.Print("==> Checking gcloud auth... ")
+	account, err := runGcloud("auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
+	if err != nil || account == "" {
+		fmt.Println("not logged in")
+		fmt.Println()
+		fmt.Println("    Launching gcloud login...")
+		loginCmd := exec.Command("gcloud", "auth", "login")
+		loginCmd.Stdin = os.Stdin
+		loginCmd.Stdout = os.Stdout
+		loginCmd.Stderr = os.Stderr
+		if err := loginCmd.Run(); err != nil {
+			fmt.Println()
+			fmt.Println("Login failed. Try running 'gcloud auth login' manually,")
+			fmt.Println("then 'gpc setup --auto' again.")
+			return
+		}
+		// Re-check
+		account, _ = runGcloud("auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
+		if account == "" {
+			fmt.Println("Login did not complete. Try 'gpc setup --auto' again.")
+			return
+		}
+	}
+	fmt.Printf("✓ (%s)\n", account)
+	fmt.Println()
+
+	// --- Step 1: Project ---
+	fmt.Print("==> [1/5] Google Cloud Project... ")
+	project, _ := runGcloud("config", "get-value", "project")
+	if project == "" || project == "(unset)" {
+		fmt.Println()
+		fmt.Print("    No project set. Enter your GCP project ID: ")
+		project = readInput(reader)
+		if project == "" {
+			fmt.Println("    Project ID is required. Aborting.")
+			return
+		}
+		runGcloud("config", "set", "project", project)
+		fmt.Printf("    Set project: %s\n", project)
+	} else {
+		fmt.Printf("✓ (%s)\n", project)
+	}
+
+	// --- Step 2: Enable API ---
+	fmt.Print("==> [2/5] Enabling Google Play Android Developer API... ")
+	_, err = runGcloud("services", "enable", "androidpublisher.googleapis.com", "--project", project)
+	if err != nil {
+		fmt.Println("✗")
+		fmt.Printf("    Error: %v\n", err)
+		return
+	}
+	fmt.Println("✓")
+
+	// --- Step 3: Create service account ---
+	saEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountName, project)
+	fmt.Print("==> [3/5] Creating service account... ")
+	_, err = runGcloud("iam", "service-accounts", "create", serviceAccountName,
+		"--display-name", "Play Console CLI",
+		"--project", project)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			fmt.Println("✓ (already exists)")
+		} else {
+			fmt.Println("✗")
+			fmt.Printf("    Error: %v\n", err)
+			return
+		}
+	} else {
+		fmt.Println("✓")
+	}
+	fmt.Printf("    Email: %s\n", saEmail)
+
+	// --- Step 4: Download key ---
+	homeDir, _ := os.UserHomeDir()
+	configDir := filepath.Join(homeDir, ".config", "gpc")
+	keyPath := filepath.Join(configDir, "service-account.json")
+
+	fmt.Print("==> [4/5] Downloading credentials... ")
+
+	// Check if key file already exists
+	if _, err := os.Stat(keyPath); err == nil {
+		fmt.Println()
+		fmt.Printf("    Credentials already exist at %s\n", keyPath)
+		fmt.Print("    Overwrite? [y/N]: ")
+		if input := readInput(reader); input != "y" && input != "yes" {
+			fmt.Println("    Keeping existing credentials.")
+			goto step5
+		}
+	}
+
+	os.MkdirAll(configDir, 0700)
+	_, err = runGcloud("iam", "service-accounts", "keys", "create", keyPath,
+		"--iam-account", saEmail,
+		"--project", project)
+	if err != nil {
+		fmt.Println("✗")
+		fmt.Printf("    Error: %v\n", err)
+		return
+	}
+	os.Chmod(keyPath, 0600)
+	fmt.Println("✓")
+	fmt.Printf("    Saved to %s\n", keyPath)
+
+step5:
+	// --- Step 5: Manual — Grant access in Play Console ---
+	playConsoleURL := "https://play.google.com/console/developers/api-access"
+	fmt.Println()
+	fmt.Println("==> [5/5] Grant access in Play Console")
+	fmt.Println()
+	fmt.Println("    Almost done! This is the one step that can't be automated.")
+	fmt.Println("    Opening Play Console now...")
+	fmt.Println()
+	fmt.Println("    Just do this:")
+	fmt.Println("      1. Click \"Link\" next to your Cloud project")
+	fmt.Printf("      2. Find: %s\n", saEmail)
+	fmt.Println("      3. Click \"Grant access\" → set permissions → \"Invite user\"")
+	fmt.Println()
+	copyToClipboard(saEmail)
+	fmt.Println("    (Service account email copied to clipboard)")
+	openBrowser(playConsoleURL)
+	waitForUser(reader, "    Press ENTER when done...")
+
+	// --- Configure CLI profile ---
+	execPath, _ := os.Executable()
+
+	fmt.Println()
+	fmt.Print("Enter your app's package name (or ENTER to skip): ")
+	packageName := readInput(reader)
+
+	fmt.Print("==> Configuring CLI profile... ")
+
+	authArgs := []string{"auth", "login", "--name", "default", "--credentials", keyPath}
+	if packageName != "" {
+		authArgs = append(authArgs, "--default-package", packageName)
+	}
+
+	authCmd := exec.Command(execPath, authArgs...)
+	authCmd.Stdout = nil
+	authCmd.Stderr = nil
+
+	if err := authCmd.Run(); err != nil {
+		fmt.Println("✗")
+		fmt.Printf("    Run manually: gpc auth login --name default --credentials %s\n", keyPath)
+	} else {
+		fmt.Println("✓")
+	}
+
+	// --- Done ---
+	fmt.Println()
+	fmt.Println("╔═══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                     SETUP COMPLETE!                          ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Println("You can now use gpc commands:")
+	fmt.Println("  gpc tracks list")
+	fmt.Println("  gpc bundles upload --file app.aab --track internal")
+	fmt.Println("  gpc reviews list")
+	fmt.Println()
+	if packageName != "" {
+		fmt.Printf("Default package: %s\n", packageName)
+	} else {
+		fmt.Println("Tip: Use --package <name> or set GPC_PACKAGE env var")
+	}
+	fmt.Println()
+	fmt.Println("Run 'gpc doctor' to verify everything is connected.")
 }
