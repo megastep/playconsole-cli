@@ -507,29 +507,34 @@ func runAutoSetup(cmd *cobra.Command) {
 
 	// --- Step 2: Enable API ---
 	fmt.Print("==> [2/5] Enabling Google Play Android Developer API... ")
-	_, err = runGcloud("services", "enable", "androidpublisher.googleapis.com", "--project", project)
-	if err != nil {
-		fmt.Println("✗")
-		fmt.Printf("    Error: %v\n", err)
-		return
-	}
-	fmt.Println("✓")
-
-	// --- Step 3: Create service account ---
-	saEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountName, project)
-	fmt.Print("==> [3/5] Creating service account... ")
-	_, err = runGcloud("iam", "service-accounts", "create", serviceAccountName,
-		"--display-name", "Play Console CLI",
-		"--project", project)
-	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			fmt.Println("✓ (already exists)")
-		} else {
+	enabledAPIs, _ := runGcloud("services", "list", "--enabled", "--filter=name:androidpublisher.googleapis.com", "--format=value(name)", "--project", project)
+	if strings.Contains(enabledAPIs, "androidpublisher") {
+		fmt.Println("✓ (already enabled)")
+	} else {
+		_, err = runGcloud("services", "enable", "androidpublisher.googleapis.com", "--project", project)
+		if err != nil {
 			fmt.Println("✗")
 			fmt.Printf("    Error: %v\n", err)
 			return
 		}
+		fmt.Println("✓")
+	}
+
+	// --- Step 3: Create service account ---
+	saEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountName, project)
+	fmt.Print("==> [3/5] Creating service account... ")
+	existingSA, _ := runGcloud("iam", "service-accounts", "list", "--filter=email:"+saEmail, "--format=value(email)", "--project", project)
+	if existingSA == saEmail {
+		fmt.Println("✓ (already exists)")
 	} else {
+		_, err = runGcloud("iam", "service-accounts", "create", serviceAccountName,
+			"--display-name", "Play Console CLI",
+			"--project", project)
+		if err != nil {
+			fmt.Println("✗")
+			fmt.Printf("    Error: %v\n", err)
+			return
+		}
 		fmt.Println("✓")
 	}
 	fmt.Printf("    Email: %s\n", saEmail)
