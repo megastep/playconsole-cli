@@ -211,7 +211,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -259,12 +259,11 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("upload failed: %w", err)
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Image uploaded: %s", image.Image.Id)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(ImageInfo{
 		ID:     image.Image.Id,
 		SHA1:   image.Image.Sha1,
@@ -277,7 +276,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -312,12 +311,11 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Image deleted: %s", imageID)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
@@ -326,7 +324,7 @@ func runDeleteAll(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -361,12 +359,11 @@ func runDeleteAll(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("All images deleted for %s/%s", locale, imageType)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
@@ -375,7 +372,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -469,6 +466,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if len(batches) == 0 {
+		output.PrintSuccess("Uploaded %d image(s)", uploaded)
+		return nil
+	}
+
 	client, err := api.NewClient(cli.GetPackageName(), 5*time.Minute)
 	if err != nil {
 		return err
@@ -516,10 +518,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if mutated {
-		if err := edit.CommitWithOptions(commitOptions); err != nil {
+		if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 			return err
 		}
-		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
+	} else if err := edit.Delete(); err != nil {
+		return err
 	}
 
 	output.PrintSuccess("Uploaded %d image(s)", uploaded)

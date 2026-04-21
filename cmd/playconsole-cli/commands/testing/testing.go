@@ -271,7 +271,7 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -348,12 +348,11 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Added %d testers to track '%s'", added, trackName)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
@@ -362,7 +361,7 @@ func runTestersRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -422,12 +421,11 @@ func runTestersRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Removed %d testers from track '%s'", removed, trackName)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 

@@ -205,7 +205,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -273,12 +273,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Track '%s' updated successfully", trackName)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
@@ -287,7 +286,7 @@ func runPromote(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -352,12 +351,11 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	}
 
 	// Commit
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Promoted version codes %v from '%s' to '%s'", codesToPromote, fromTrack, toTrack)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
@@ -366,7 +364,7 @@ func runHalt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -407,12 +405,11 @@ func runHalt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Halted rollout on track '%s'", trackName)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
@@ -421,7 +418,7 @@ func runComplete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -463,11 +460,10 @@ func runComplete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Completed rollout on track '%s' (100%%)", trackName)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }

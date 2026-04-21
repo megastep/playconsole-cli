@@ -59,7 +59,6 @@ or fails if the timeout is reached.`,
 var (
 	filePath         string
 	trackName        string
-	autoCommit       bool
 	releaseNotes     string
 	releaseNotesLang string
 	rolloutPct       float64
@@ -72,7 +71,7 @@ func init() {
 	// Upload flags
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to AAB file")
 	uploadCmd.Flags().StringVar(&trackName, "track", "", "track to assign (internal, alpha, beta, production)")
-	uploadCmd.Flags().BoolVar(&autoCommit, "commit", true, "automatically commit the edit")
+	uploadCmd.Flags().Bool("commit", true, "automatically commit the edit")
 	cli.AddStageFlag(uploadCmd)
 	uploadCmd.Flags().StringVar(&releaseNotes, "release-notes", "", "release notes text")
 	uploadCmd.Flags().StringVar(&releaseNotesLang, "release-notes-lang", "en-US", "release notes language")
@@ -107,7 +106,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -201,14 +200,8 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		output.PrintSuccess("Assigned to track: %s", trackName)
 	}
 
-	// Commit if requested
-	if autoCommit {
-		if err := edit.CommitWithOptions(commitOptions); err != nil {
-			return err
-		}
-		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
-	} else {
-		output.PrintInfo("Edit ID: %s (not committed, use 'gpc edits commit' to commit)", edit.ID())
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
+		return err
 	}
 
 	return output.Print(BundleInfo{

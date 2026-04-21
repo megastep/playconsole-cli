@@ -98,9 +98,9 @@ gpc apps list  # See your apps
 ### Deploy! 🎉
 ```bash
 gpc bundles upload --file app.aab --track internal
-gpc bundles upload --file app.aab --track production --stage
-gpc bundles upload --file app.aab --track production --commit=false
-gpc edits commit --edit-id EDIT_ID --stage
+gpc bundles upload --file app.aab --track production --edit-mode=stage
+gpc bundles upload --file app.aab --track production --edit-mode=open
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage
 gpc tracks promote --from internal --to production --rollout-percentage 10
 ```
 
@@ -114,8 +114,8 @@ gpc tracks promote --from internal --to production --rollout-percentage 10
 
 ```bash
 gpc bundles upload --file app.aab --track internal    # Upload
-gpc bundles upload --file app.aab --track production --stage  # Commit and stage for later review
-gpc bundles upload --file app.aab --track production --commit=false  # Leave edit open
+gpc bundles upload --file app.aab --track production --edit-mode=stage  # Commit and stage for later review
+gpc bundles upload --file app.aab --track production --edit-mode=open   # Leave edit open
 gpc bundles find --version-code 42                     # Find by version code
 gpc bundles wait --version-code 42                     # Wait for processing
 gpc tracks list                                        # List tracks
@@ -191,6 +191,19 @@ gpc testing internal-sharing upload --file app.aab   # Instant test link
 gpc testing testers add --track beta --emails "dev@company.com"
 ```
 
+### Edit submission modes
+
+Use `--edit-mode` on edit-backed mutating commands to control how the edit is finalized:
+
+```bash
+gpc bundles upload --file app.aab --track production                    # live (default)
+gpc bundles upload --file app.aab --track production --edit-mode=stage  # commit without sending for review
+gpc bundles upload --file app.aab --track production --edit-mode=open   # leave the edit open
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage                    # finalize an existing edit in stage mode
+```
+
+During rollout, existing `--stage` and `--commit=false` flags still work as compatibility aliases, but prefer `--edit-mode=stage` and `--edit-mode=open`.
+
 ### 👥 Team
 
 ```bash
@@ -204,7 +217,7 @@ gpc users grant --email "dev@company.com" --role releaseManager
 gpc doctor                                             # Validate setup
 gpc init --package com.example.app                     # Create project config
 gpc diff                                               # Compare draft vs live
-gpc edits commit --edit-id EDIT_ID --stage             # Commit an existing edit without sending for review
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage   # Commit an existing edit without sending for review
 gpc recovery list                                      # App recovery actions
 gpc completion zsh > "${fpath[1]}/_gpc"                # Shell completions
 ```

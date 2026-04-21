@@ -174,7 +174,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -232,12 +232,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Listing updated for locale '%s'", locale)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(ListingInfo{
 		Locale:           updated.Language,
 		Title:            updated.Title,
@@ -251,7 +250,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -337,10 +336,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cli.IsDryRun() && updated > 0 {
-		if err := edit.CommitWithOptions(commitOptions); err != nil {
+		if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 			return err
 		}
-		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
+	} else if !cli.IsDryRun() {
+		if err := edit.Delete(); err != nil {
+			return err
+		}
 	}
 
 	output.PrintSuccess("Synced %d locale(s)", updated)

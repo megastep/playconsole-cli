@@ -23,6 +23,7 @@ var (
 	debug       bool
 	timeout     string
 	dryRun      bool
+	editMode    string
 
 	versionStr string
 	commitStr  string
@@ -103,9 +104,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "show API requests/responses")
 	rootCmd.PersistentFlags().StringVar(&timeout, "timeout", "60s", "request timeout")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without applying")
+	rootCmd.PersistentFlags().StringVar(&editMode, "edit-mode", "live", "edit submission mode for edit-backed mutating commands: live, stage, open")
 
 	// Bind to viper
 	viper.BindPFlag("package", rootCmd.PersistentFlags().Lookup("package"))
+	viper.BindPFlag("edit-mode", rootCmd.PersistentFlags().Lookup("edit-mode"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
@@ -113,6 +116,7 @@ func init() {
 
 	// Environment variable bindings
 	viper.BindEnv("package", "GPC_PACKAGE")
+	viper.BindEnv("edit-mode", "GPC_EDIT_MODE")
 	viper.BindEnv("profile", "GPC_PROFILE")
 	viper.BindEnv("output", "GPC_OUTPUT")
 	viper.BindEnv("debug", "GPC_DEBUG")
