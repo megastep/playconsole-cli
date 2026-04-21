@@ -409,10 +409,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 			typeDir := filepath.Join(localeDir, typeName)
 			fileNames, err := collectValidImageFiles(typeDir)
 			if err != nil {
+				output.PrintWarning("Failed to collect images from %s: %v", typeDir, err)
 				continue
 			}
 
-			if len(fileNames) == 0 {
+			if len(fileNames) == 0 && !replaceExisting {
 				continue
 			}
 
@@ -425,6 +426,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if cli.IsDryRun() {
+		wouldUpload := 0
 		for _, batch := range batches {
 			if replaceExisting {
 				output.PrintInfo("Dry run: would replace existing images for %s/%s", batch.locale, batch.imageType)
@@ -432,10 +434,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 			for _, fileName := range batch.files {
 				output.PrintInfo("Dry run: would upload %s to %s/%s", fileName, batch.locale, batch.imageType)
+				wouldUpload++
 			}
 		}
 
-		output.PrintSuccess("Uploaded %d image(s)", uploaded)
+		output.PrintSuccess("Would upload %d image(s)", wouldUpload)
 		return nil
 	}
 
