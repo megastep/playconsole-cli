@@ -60,8 +60,8 @@ Manage release tracks (internal, alpha, beta, production).
 ```bash
 gpc tracks list                                        # List all tracks
 gpc tracks get --track production                      # Get track details
-gpc tracks update --track production --rollout 50      # Staged rollout
-gpc tracks update --track production --rollout 50 --stage  # Commit but do not send for review
+gpc tracks update --track production --rollout-percentage 50      # Staged rollout
+gpc tracks update --track production --rollout-percentage 50 --stage  # Commit but do not send for review
 gpc tracks promote --from internal --to beta           # Promote release
 gpc tracks halt --track production                     # Halt rollout
 gpc tracks complete --track production                 # Complete to 100%
@@ -279,10 +279,10 @@ Manage testing tracks and testers.
 gpc testing internal list               # List internal test builds
 gpc testing internal-sharing upload --file app.aab   # Get instant test link
 gpc testing testers list --track beta   # List testers
-gpc testing testers add --track beta --email "dev@company.com"
-gpc testing testers add --track beta --email "dev@company.com" --stage
-gpc testing testers add --track beta --file testers.txt
-gpc testing testers remove --track beta --email "dev@company.com"
+gpc testing testers add --track beta --emails "dev@company.com"
+gpc testing testers add --track beta --emails "dev@company.com" --stage
+gpc testing testers add --track beta --emails-file testers.txt
+gpc testing testers remove --track beta --emails "dev@company.com"
 gpc testing tester-groups list          # List tester groups
 ```
 

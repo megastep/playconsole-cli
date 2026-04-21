@@ -31,6 +31,18 @@ func TestGetCommitOptions(t *testing.T) {
 	}
 }
 
+func TestGetCommitOptionsWithoutStageFlag(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+
+	options, err := GetCommitOptions(cmd)
+	if err != nil {
+		t.Fatalf("GetCommitOptions() error = %v", err)
+	}
+	if options.ChangesNotSentForReview {
+		t.Fatalf("ChangesNotSentForReview = true, want false")
+	}
+}
+
 func TestGetCommitOptionsRejectsStageWithoutCommit(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.Flags().Bool("commit", true, "")

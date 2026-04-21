@@ -157,6 +157,7 @@ type Edit struct {
 	cancel context.CancelFunc
 }
 
+// CommitOptions configures how an edit is committed.
 type CommitOptions struct {
 	ChangesNotSentForReview bool
 }
@@ -221,6 +222,7 @@ func (e *Edit) Commit() error {
 	return e.CommitWithOptions(CommitOptions{})
 }
 
+// CommitWithOptions commits the edit using the supplied commit options.
 func (e *Edit) CommitWithOptions(options CommitOptions) error {
 	call := e.client.service.Edits.Commit(e.client.packageName, e.editID).Context(e.ctx)
 	if options.ChangesNotSentForReview {
