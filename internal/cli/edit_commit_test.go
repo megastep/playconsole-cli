@@ -5,6 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/api/googleapi"
+
+	"github.com/AndroidPoet/playconsole-cli/internal/api"
 )
 
 func TestGetEditSubmissionDefaultsToLive(t *testing.T) {
@@ -159,10 +162,71 @@ func TestParseEditSubmissionModeRejectsInvalidValue(t *testing.T) {
 	}
 }
 
+func TestApplyEditSubmissionFallsBackWhenStageIsAutoReviewed(t *testing.T) {
+	edit := &fakeEditCommitter{
+		id: "edit-123",
+		commitWithOptionsErr: &googleapi.Error{
+			Code:    400,
+			Message: "Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.",
+		},
+	}
+
+	err := applyEditSubmission(edit, EditSubmission{
+		Mode:          EditSubmissionModeStage,
+		CommitOptions: api.CommitOptions{ChangesNotSentForReview: true},
+	})
+	if err != nil {
+		t.Fatalf("applyEditSubmission() error = %v", err)
+	}
+	if edit.commitWithOptionsCalls != 1 {
+		t.Fatalf("CommitWithOptions call count = %d, want 1", edit.commitWithOptionsCalls)
+	}
+	if !edit.lastCommitOptions.ChangesNotSentForReview {
+		t.Fatalf("last CommitWithOptions.ChangesNotSentForReview = false, want true")
+	}
+	if edit.commitCalls != 1 {
+		t.Fatalf("Commit call count = %d, want 1", edit.commitCalls)
+	}
+}
+
+func TestIsAutoReviewCommitError(t *testing.T) {
+	err := &googleapi.Error{
+		Code:    400,
+		Message: "Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.",
+	}
+	if !isAutoReviewCommitError(err) {
+		t.Fatalf("isAutoReviewCommitError() = false, want true")
+	}
+}
+
 func newEditSubmissionTestCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.Flags().String("edit-mode", "live", "")
 	cmd.Flags().Bool("commit", true, "")
 	AddStageFlag(cmd)
 	return cmd
+}
+
+type fakeEditCommitter struct {
+	id                     string
+	commitCalls            int
+	commitErr              error
+	commitWithOptionsCalls int
+	commitWithOptionsErr   error
+	lastCommitOptions      api.CommitOptions
+}
+
+func (f *fakeEditCommitter) ID() string {
+	return f.id
+}
+
+func (f *fakeEditCommitter) Commit() error {
+	f.commitCalls++
+	return f.commitErr
+}
+
+func (f *fakeEditCommitter) CommitWithOptions(options api.CommitOptions) error {
+	f.commitWithOptionsCalls++
+	f.lastCommitOptions = options
+	return f.commitWithOptionsErr
 }

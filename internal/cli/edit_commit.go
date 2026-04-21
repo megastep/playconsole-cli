@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/api/googleapi"
 
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
@@ -25,6 +27,12 @@ type EditSubmission struct {
 	Mode          EditSubmissionMode
 	CommitOptions api.CommitOptions
 	LeaveOpen     bool
+}
+
+type editCommitter interface {
+	ID() string
+	Commit() error
+	CommitWithOptions(options api.CommitOptions) error
 }
 
 // AddStageFlag adds the --stage flag to cmd.
@@ -63,17 +71,43 @@ func GetEditSubmission(cmd *cobra.Command, allowOpen bool) (EditSubmission, erro
 }
 
 func ApplyEditSubmission(edit *api.Edit, submission EditSubmission) error {
+	return applyEditSubmission(edit, submission)
+}
+
+func applyEditSubmission(edit editCommitter, submission EditSubmission) error {
 	if submission.LeaveOpen {
 		output.PrintEditOpen(edit.ID())
 		return nil
 	}
 
 	if err := edit.CommitWithOptions(submission.CommitOptions); err != nil {
+		if submission.Mode == EditSubmissionModeStage && isAutoReviewCommitError(err) {
+			output.PrintWarning("Play Console auto-sends these changes for review; retrying commit without staging")
+			if retryErr := edit.Commit(); retryErr != nil {
+				return retryErr
+			}
+			output.PrintSuccess("Edit committed (Play Console sent changes for review automatically)")
+			return nil
+		}
 		return err
 	}
 
 	output.PrintEditCommitSuccess(submission.Mode == EditSubmissionModeStage)
 	return nil
+}
+
+func isAutoReviewCommitError(err error) bool {
+	var apiErr *googleapi.Error
+	ok := errors.As(err, &apiErr)
+	if !ok {
+		return false
+	}
+	if apiErr.Code != 400 {
+		return false
+	}
+
+	return strings.Contains(apiErr.Message, "Changes are sent for review automatically") &&
+		strings.Contains(apiErr.Message, "changesNotSentForReview must not be set")
 }
 
 func resolveEditSubmissionMode(cmd *cobra.Command) (EditSubmissionMode, error) {
