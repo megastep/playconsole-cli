@@ -98,7 +98,10 @@ gpc apps list  # See your apps
 ### Deploy! 🎉
 ```bash
 gpc bundles upload --file app.aab --track internal
-gpc tracks promote --from internal --to production --rollout 10
+gpc bundles upload --file app.aab --track production --stage
+gpc bundles upload --file app.aab --track production --commit=false
+gpc edits commit --edit-id EDIT_ID --stage
+gpc tracks promote --from internal --to production --rollout-percentage 10
 ```
 
 ---
@@ -111,11 +114,13 @@ gpc tracks promote --from internal --to production --rollout 10
 
 ```bash
 gpc bundles upload --file app.aab --track internal    # Upload
+gpc bundles upload --file app.aab --track production --stage  # Commit and stage for later review
+gpc bundles upload --file app.aab --track production --commit=false  # Leave edit open
 gpc bundles find --version-code 42                     # Find by version code
 gpc bundles wait --version-code 42                     # Wait for processing
 gpc tracks list                                        # List tracks
 gpc tracks promote --from internal --to beta           # Promote
-gpc tracks update --track production --rollout 50     # Staged rollout
+gpc tracks update --track production --rollout-percentage 50  # Staged rollout
 gpc tracks halt --track production                    # Emergency halt
 gpc deobfuscation upload --version-code 42 --file mapping.txt  # Crash symbolication
 ```
@@ -183,7 +188,7 @@ gpc reports types                                      # Report type info
 
 ```bash
 gpc testing internal-sharing upload --file app.aab   # Instant test link
-gpc testing testers add --track beta --email "dev@company.com"
+gpc testing testers add --track beta --emails "dev@company.com"
 ```
 
 ### 👥 Team
@@ -199,6 +204,7 @@ gpc users grant --email "dev@company.com" --role releaseManager
 gpc doctor                                             # Validate setup
 gpc init --package com.example.app                     # Create project config
 gpc diff                                               # Compare draft vs live
+gpc edits commit --edit-id EDIT_ID --stage             # Commit an existing edit without sending for review
 gpc recovery list                                      # App recovery actions
 gpc completion zsh > "${fpath[1]}/_gpc"                # Shell completions
 ```
@@ -236,7 +242,7 @@ jobs:
           GPC_PACKAGE: com.yourcompany.app
         run: |
           gpc bundles upload --file app/build/outputs/bundle/release/app-release.aab --track internal
-          gpc tracks promote --from internal --to production --rollout 10
+          gpc tracks promote --from internal --to production --rollout-percentage 10
 ```
 
 ### Encode Credentials for CI

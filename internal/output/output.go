@@ -71,6 +71,15 @@ func PrintSuccess(format string, args ...interface{}) {
 	}
 }
 
+// PrintEditCommitSuccess prints the appropriate success message for an edit commit.
+func PrintEditCommitSuccess(staged bool) {
+	if staged {
+		PrintSuccess("Edit committed and staged in Play Console (not sent for review)")
+		return
+	}
+	PrintSuccess("Edit committed")
+}
+
 // PrintInfo prints an info message (respects quiet mode)
 func PrintInfo(format string, args ...interface{}) {
 	if !quietMode {

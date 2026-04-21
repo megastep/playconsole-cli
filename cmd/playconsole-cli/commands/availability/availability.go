@@ -37,15 +37,16 @@ var updateCmd = &cobra.Command{
 }
 
 var (
-	track          string
-	countries      string
-	includeRest    bool
+	track       string
+	countries   string
+	includeRest bool
 )
 
 func init() {
 	listCmd.Flags().StringVar(&track, "track", "production", "release track")
 
 	updateCmd.Flags().StringVar(&track, "track", "production", "release track")
+	cli.AddStageFlag(updateCmd)
 	updateCmd.Flags().StringVar(&countries, "countries", "", "comma-separated country codes (e.g., US,GB,DE)")
 	updateCmd.Flags().BoolVar(&includeRest, "include-rest", true, "include rest of world")
 	updateCmd.Flags().Bool("confirm", false, "confirm destructive operation")
@@ -114,6 +115,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	if err := cli.CheckConfirm(cmd); err != nil {
 		return err
 	}
@@ -169,11 +175,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to update track: %w", err)
 	}
 
-	// Commit
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Country targeting updated for track '%s'", track)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }

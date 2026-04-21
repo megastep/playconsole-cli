@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/api/androidpublisher/v3"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -88,6 +88,7 @@ func init() {
 	updateCmd.Flags().StringVar(&releaseNotes, "release-notes", "", "release notes text")
 	updateCmd.Flags().StringVar(&releaseNotesLang, "release-notes-lang", "en-US", "release notes language")
 	updateCmd.Flags().StringVar(&status, "status", "completed", "release status (draft, inProgress, halted, completed)")
+	cli.AddStageFlag(updateCmd)
 	updateCmd.MarkFlagRequired("track")
 
 	// Promote flags
@@ -95,15 +96,18 @@ func init() {
 	promoteCmd.Flags().StringVar(&toTrack, "to", "", "destination track")
 	promoteCmd.Flags().Int64Var(&versionCode, "version-code", 0, "specific version code to promote (optional)")
 	promoteCmd.Flags().Float64Var(&rolloutPercentage, "rollout-percentage", 100, "rollout percentage")
+	cli.AddStageFlag(promoteCmd)
 	promoteCmd.MarkFlagRequired("from")
 	promoteCmd.MarkFlagRequired("to")
 
 	// Halt flags
 	haltCmd.Flags().StringVar(&trackName, "track", "", "track name")
+	cli.AddStageFlag(haltCmd)
 	haltCmd.MarkFlagRequired("track")
 
 	// Complete flags
 	completeCmd.Flags().StringVar(&trackName, "track", "", "track name")
+	cli.AddStageFlag(completeCmd)
 	completeCmd.MarkFlagRequired("track")
 
 	TracksCmd.AddCommand(listCmd)
@@ -116,11 +120,11 @@ func init() {
 
 // TrackInfo represents track information for output
 type TrackInfo struct {
-	Track        string   `json:"track"`
-	VersionCodes []int64  `json:"version_codes,omitempty"`
-	Status       string   `json:"status,omitempty"`
-	Rollout      float64  `json:"rollout,omitempty"`
-	ReleaseCount int      `json:"release_count"`
+	Track        string  `json:"track"`
+	VersionCodes []int64 `json:"version_codes,omitempty"`
+	Status       string  `json:"status,omitempty"`
+	Rollout      float64 `json:"rollout,omitempty"`
+	ReleaseCount int     `json:"release_count"`
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -201,6 +205,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Validate version codes
 	codes := versionCodes
 	if versionCode > 0 {
@@ -264,17 +273,22 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Commit the edit
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Track '%s' updated successfully", trackName)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
 func runPromote(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -338,16 +352,22 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	}
 
 	// Commit
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Promoted version codes %v from '%s' to '%s'", codesToPromote, fromTrack, toTrack)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
 func runHalt(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -387,16 +407,22 @@ func runHalt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Halted rollout on track '%s'", trackName)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }
 
 func runComplete(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -437,10 +463,11 @@ func runComplete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Completed rollout on track '%s' (100%%)", trackName)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(updated)
 }

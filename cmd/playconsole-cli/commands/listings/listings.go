@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/api/androidpublisher/v3"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -59,12 +59,12 @@ Expected structure (fastlane-compatible):
 }
 
 var (
-	locale          string
-	title           string
-	shortDesc       string
-	fullDesc        string
-	fullDescFile    string
-	syncDir         string
+	locale       string
+	title        string
+	shortDesc    string
+	fullDesc     string
+	fullDescFile string
+	syncDir      string
 )
 
 func init() {
@@ -78,10 +78,12 @@ func init() {
 	updateCmd.Flags().StringVar(&shortDesc, "short-description", "", "short description (80 chars)")
 	updateCmd.Flags().StringVar(&fullDesc, "full-description", "", "full description")
 	updateCmd.Flags().StringVar(&fullDescFile, "full-description-file", "", "file containing full description")
+	cli.AddStageFlag(updateCmd)
 	updateCmd.MarkFlagRequired("locale")
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing metadata")
+	cli.AddStageFlag(syncCmd)
 	syncCmd.MarkFlagRequired("dir")
 
 	ListingsCmd.AddCommand(listCmd)
@@ -172,6 +174,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Read full description from file if specified
 	desc := fullDesc
 	if fullDescFile != "" {
@@ -225,11 +232,12 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Listing updated for locale '%s'", locale)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(ListingInfo{
 		Locale:           updated.Language,
 		Title:            updated.Title,
@@ -240,6 +248,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 func runSync(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -324,9 +337,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cli.IsDryRun() && updated > 0 {
-		if err := edit.Commit(); err != nil {
+		if err := edit.CommitWithOptions(commitOptions); err != nil {
 			return err
 		}
+		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	}
 
 	output.PrintSuccess("Synced %d locale(s)", updated)

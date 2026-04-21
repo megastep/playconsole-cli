@@ -11,8 +11,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/googleapi"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -82,10 +82,10 @@ var testerGroupsListCmd = &cobra.Command{
 }
 
 var (
-	trackName   string
-	emails      string
-	emailsFile  string
-	filePath    string
+	trackName  string
+	emails     string
+	emailsFile string
+	filePath   string
 )
 
 func init() {
@@ -97,11 +97,13 @@ func init() {
 	testersAddCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	testersAddCmd.Flags().StringVar(&emails, "emails", "", "comma-separated email addresses")
 	testersAddCmd.Flags().StringVar(&emailsFile, "emails-file", "", "file containing email addresses (one per line)")
+	cli.AddStageFlag(testersAddCmd)
 	testersAddCmd.MarkFlagRequired("track")
 
 	// Testers remove flags
 	testersRemoveCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	testersRemoveCmd.Flags().StringVar(&emails, "emails", "", "comma-separated email addresses")
+	cli.AddStageFlag(testersRemoveCmd)
 	testersRemoveCmd.MarkFlagRequired("track")
 
 	// Internal sharing upload flags
@@ -269,6 +271,11 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Collect emails
 	var emailList []string
 	if emails != "" {
@@ -341,16 +348,22 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Added %d testers to track '%s'", added, trackName)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
 func runTestersRemove(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -409,11 +422,12 @@ func runTestersRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Removed %d testers from track '%s'", removed, trackName)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
