@@ -131,9 +131,12 @@ gpc deobfuscation upload --version-code 42 --file mapping.txt  # Crash symbolica
 gpc listings sync --dir ./metadata/                   # Sync all listings
 gpc listings update --locale en-US --title "My App"   # Update listing
 gpc images sync --dir ./screenshots/                  # Sync screenshots (append)
+gpc images sync --dir ./screenshots/ --progress       # Show per-file upload progress
 gpc images sync --dir ./screenshots/ --replace        # Replace screenshots per locale/type
 gpc availability list --track production              # Country targeting
 ```
+
+Add `--progress` to `gpc images upload` or `gpc images sync` when you want coarse upload progress reporting for image files.
 
 ### ⭐ Reviews
 

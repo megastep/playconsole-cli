@@ -107,16 +107,18 @@ Manage screenshots and promotional graphics.
 ```bash
 gpc images list --locale en-US --type phoneScreenshots
 gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png
+gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png --progress
 gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png --edit-mode=stage
 gpc images delete --locale en-US --type phoneScreenshots --id image-id
 gpc images delete-all --locale en-US --type phoneScreenshots
 gpc images sync --dir ./screenshots/
+gpc images sync --dir ./screenshots/ --progress
 gpc images sync --dir ./screenshots/ --edit-mode=stage
 gpc images sync --dir ./screenshots/ --edit-mode=open
 gpc images sync --dir ./screenshots/ --replace
 ```
 
-`gpc images sync` appends uploads by default. Add `--replace` to delete existing remote images for each discovered `locale/type` pair before uploading the local files for that pair. Use `--edit-mode=stage` to commit the synced changes without sending them for review immediately, or `--edit-mode=open` to leave the edit open.
+`gpc images upload` and `gpc images sync` support optional upload progress output via `--progress`. `gpc images sync` appends uploads by default. Add `--replace` to delete existing remote images for each discovered `locale/type` pair before uploading the local files for that pair. Use `--edit-mode=stage` to commit the synced changes without sending them for review immediately, or `--edit-mode=open` to leave the edit open.
 
 ---
 

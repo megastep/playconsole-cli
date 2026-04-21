@@ -2,6 +2,7 @@ package images
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -83,6 +84,7 @@ var (
 	filePath        string
 	syncDir         string
 	replaceExisting bool
+	showProgress    bool
 )
 
 // Valid image types
@@ -109,6 +111,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&locale, "locale", "", "locale code")
 	uploadCmd.Flags().StringVar(&imageType, "type", "", "image type")
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to image file")
+	uploadCmd.Flags().BoolVar(&showProgress, "progress", false, "show upload progress")
 	cli.AddStageFlag(uploadCmd)
 	uploadCmd.MarkFlagRequired("locale")
 	uploadCmd.MarkFlagRequired("type")
@@ -134,6 +137,7 @@ func init() {
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing images")
+	syncCmd.Flags().BoolVar(&showProgress, "progress", false, "show upload progress for each file")
 	cli.AddStageFlag(syncCmd)
 	syncCmd.Flags().BoolVar(&replaceExisting, "replace", false, "replace existing remote images for each synced locale/type")
 	syncCmd.MarkFlagRequired("dir")
@@ -151,6 +155,90 @@ type ImageInfo struct {
 	URL    string `json:"url,omitempty"`
 	SHA1   string `json:"sha1,omitempty"`
 	SHA256 string `json:"sha256,omitempty"`
+}
+
+type progressReader struct {
+	reader     io.Reader
+	total      int64
+	current    int64
+	lastBucket int64
+	label      string
+}
+
+func newProgressReader(reader io.Reader, total int64, label string) *progressReader {
+	return &progressReader{
+		reader:     reader,
+		total:      total,
+		lastBucket: -1,
+		label:      label,
+	}
+}
+
+func (r *progressReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if n > 0 {
+		r.current += int64(n)
+		r.reportProgress()
+	}
+
+	if err == io.EOF && r.total > 0 && r.current >= r.total {
+		r.reportFinalProgress()
+	}
+
+	return n, err
+}
+
+func (r *progressReader) reportProgress() {
+	if r.total <= 0 {
+		return
+	}
+
+	bucket := (r.current * 10) / r.total
+	if bucket > 10 {
+		bucket = 10
+	}
+	if bucket == r.lastBucket && r.current < r.total {
+		return
+	}
+
+	r.lastBucket = bucket
+	output.PrintInfo("Upload progress: %s %d%% (%s/%s)", r.label, percentComplete(r.current, r.total), formatBytes(r.current), formatBytes(r.total))
+}
+
+func (r *progressReader) reportFinalProgress() {
+	if r.lastBucket == 10 {
+		return
+	}
+	r.lastBucket = 10
+	output.PrintInfo("Upload progress: %s 100%% (%s/%s)", r.label, formatBytes(r.total), formatBytes(r.total))
+}
+
+func percentComplete(current, total int64) int64 {
+	if total <= 0 {
+		return 0
+	}
+	if current >= total {
+		return 100
+	}
+	return (current * 100) / total
+}
+
+func formatBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+
+	value := float64(size)
+	suffixes := []string{"KiB", "MiB", "GiB", "TiB"}
+	for _, suffix := range suffixes {
+		value /= unit
+		if value < unit {
+			return fmt.Sprintf("%.1f %s", value, suffix)
+		}
+	}
+
+	return fmt.Sprintf("%.1f PiB", value/unit)
 }
 
 func validateImageType(t string) error {
@@ -254,7 +342,12 @@ func runUpload(cmd *cobra.Command, args []string) error {
 
 	output.PrintInfo("Uploading: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
-	image, err := edit.Images().Upload(client.GetPackageName(), edit.ID(), locale, imageType).Media(file).Context(edit.Context()).Do()
+	reader := io.Reader(file)
+	if showProgress {
+		reader = newProgressReader(file, info.Size(), filepath.Base(absPath))
+	}
+
+	image, err := edit.Images().Upload(client.GetPackageName(), edit.ID(), locale, imageType).Media(reader).Context(edit.Context()).Do()
 	if err != nil {
 		return fmt.Errorf("upload failed: %w", err)
 	}
@@ -496,6 +589,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 		for _, fileName := range batch.files {
 			filePath := filepath.Join(absDir, batch.locale, batch.imageType, fileName)
+			fileInfo, err := os.Stat(filePath)
+			if err != nil {
+				output.PrintWarning("Failed to stat %s: %v", filePath, err)
+				continue
+			}
 
 			file, err := os.Open(filePath)
 			if err != nil {
@@ -503,7 +601,12 @@ func runSync(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Media(file).Context(ctx).Do()
+			reader := io.Reader(file)
+			if showProgress {
+				reader = newProgressReader(file, fileInfo.Size(), filepath.Join(batch.locale, batch.imageType, fileName))
+			}
+
+			_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Media(reader).Context(ctx).Do()
 			file.Close()
 
 			if err != nil {
