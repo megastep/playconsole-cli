@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -60,6 +61,10 @@ var syncCmd = &cobra.Command{
 	Short: "Sync images from a directory",
 	Long: `Sync images from a directory structure.
 
+By default, sync appends uploaded images. Use --replace to delete
+existing remote images for each discovered locale/type before uploading
+the local files for that same locale/type.
+
 Expected structure:
   screenshots/
     en-US/
@@ -77,6 +82,7 @@ var (
 	imageID   string
 	filePath  string
 	syncDir   string
+	replaceExisting bool
 )
 
 // Valid image types
@@ -125,6 +131,7 @@ func init() {
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing images")
+	syncCmd.Flags().BoolVar(&replaceExisting, "replace", false, "replace existing remote images for each synced locale/type")
 	syncCmd.MarkFlagRequired("dir")
 
 	ImagesCmd.AddCommand(listCmd)
@@ -359,25 +366,22 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not a directory: %s", absDir)
 	}
 
-	client, err := api.NewClient(cli.GetPackageName(), 5*time.Minute)
-	if err != nil {
-		return err
-	}
-
-	edit, err := client.CreateEdit()
-	if err != nil {
-		return err
-	}
-	defer edit.Close()
-
-	ctx := edit.Context()
 	uploaded := 0
+	mutated := false
 
 	// Walk directory: locale/imageType/files
 	locales, err := os.ReadDir(absDir)
 	if err != nil {
 		return err
 	}
+
+	type syncBatch struct {
+		locale string
+		imageType string
+		files []string
+	}
+
+	batches := make([]syncBatch, 0)
 
 	for _, localeEntry := range locales {
 		if !localeEntry.IsDir() {
@@ -403,48 +407,88 @@ func runSync(cmd *cobra.Command, args []string) error {
 			}
 
 			typeDir := filepath.Join(localeDir, typeName)
-			files, err := os.ReadDir(typeDir)
+			fileNames, err := collectValidImageFiles(typeDir)
 			if err != nil {
+				output.PrintWarning("Failed to collect images from %s: %v", typeDir, err)
 				continue
 			}
 
-			for _, fileEntry := range files {
-				if fileEntry.IsDir() {
-					continue
-				}
-
-				filePath := filepath.Join(typeDir, fileEntry.Name())
-				ext := strings.ToLower(filepath.Ext(fileEntry.Name()))
-				if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
-					continue
-				}
-
-				if cli.IsDryRun() {
-					output.PrintInfo("Dry run: would upload %s to %s/%s", fileEntry.Name(), localeName, typeName)
-					continue
-				}
-
-				file, err := os.Open(filePath)
-				if err != nil {
-					output.PrintWarning("Failed to open %s: %v", filePath, err)
-					continue
-				}
-
-				_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), localeName, typeName).Media(file).Context(ctx).Do()
-				file.Close()
-
-				if err != nil {
-					output.PrintWarning("Failed to upload %s: %v", fileEntry.Name(), err)
-					continue
-				}
-
-				output.PrintInfo("Uploaded: %s/%s/%s", localeName, typeName, fileEntry.Name())
-				uploaded++
+			if len(fileNames) == 0 && !replaceExisting {
+				continue
 			}
+
+			batches = append(batches, syncBatch{
+				locale: localeName,
+				imageType: typeName,
+				files: fileNames,
+			})
 		}
 	}
 
-	if !cli.IsDryRun() && uploaded > 0 {
+	if cli.IsDryRun() {
+		wouldUpload := 0
+		for _, batch := range batches {
+			if replaceExisting {
+				output.PrintInfo("Dry run: would replace existing images for %s/%s", batch.locale, batch.imageType)
+			}
+
+			for _, fileName := range batch.files {
+				output.PrintInfo("Dry run: would upload %s to %s/%s", fileName, batch.locale, batch.imageType)
+				wouldUpload++
+			}
+		}
+
+		output.PrintSuccess("Would upload %d image(s)", wouldUpload)
+		return nil
+	}
+
+	client, err := api.NewClient(cli.GetPackageName(), 5*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	edit, err := client.CreateEdit()
+	if err != nil {
+		return err
+	}
+	defer edit.Close()
+
+	ctx := edit.Context()
+
+	for _, batch := range batches {
+		if replaceExisting {
+			output.PrintInfo("Replacing existing images for %s/%s", batch.locale, batch.imageType)
+			if _, err := edit.Images().Deleteall(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Context(ctx).Do(); err != nil {
+				output.PrintWarning("Failed to delete existing images for %s/%s: %v", batch.locale, batch.imageType, err)
+				continue
+			}
+			mutated = true
+		}
+
+		for _, fileName := range batch.files {
+			filePath := filepath.Join(absDir, batch.locale, batch.imageType, fileName)
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				output.PrintWarning("Failed to open %s: %v", filePath, err)
+				continue
+			}
+
+			_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Media(file).Context(ctx).Do()
+			file.Close()
+
+			if err != nil {
+				output.PrintWarning("Failed to upload %s: %v", fileName, err)
+				continue
+			}
+
+			output.PrintInfo("Uploaded: %s/%s/%s", batch.locale, batch.imageType, fileName)
+			uploaded++
+			mutated = true
+		}
+	}
+
+	if mutated {
 		if err := edit.Commit(); err != nil {
 			return err
 		}
@@ -452,4 +496,28 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 	output.PrintSuccess("Uploaded %d image(s)", uploaded)
 	return nil
+}
+
+func collectValidImageFiles(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+			continue
+		}
+
+		files = append(files, entry.Name())
+	}
+
+	sort.Strings(files)
+	return files, nil
 }
