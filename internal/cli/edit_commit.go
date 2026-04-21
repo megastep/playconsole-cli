@@ -133,9 +133,5 @@ func resolveEditSubmissionMode(cmd *cobra.Command) (EditSubmissionMode, error) {
 		return ParseEditSubmissionMode(viper.GetString("edit-mode"))
 	}
 
-	if flag := cmd.Flags().Lookup("edit-mode"); flag != nil {
-		return ParseEditSubmissionMode(flag.Value.String())
-	}
-
 	return EditSubmissionModeLive, nil
 }
