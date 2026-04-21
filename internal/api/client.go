@@ -151,10 +151,14 @@ func (c *Client) SystemAPKs() *androidpublisher.SystemapksService {
 
 // Edit represents an active edit session
 type Edit struct {
-	client  *Client
-	editID  string
-	ctx     context.Context
-	cancel  context.CancelFunc
+	client *Client
+	editID string
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+type CommitOptions struct {
+	ChangesNotSentForReview bool
 }
 
 // CreateEdit creates a new edit session
@@ -214,7 +218,16 @@ func (e *Edit) Validate() error {
 
 // Commit commits the edit
 func (e *Edit) Commit() error {
-	_, err := e.client.service.Edits.Commit(e.client.packageName, e.editID).Context(e.ctx).Do()
+	return e.CommitWithOptions(CommitOptions{})
+}
+
+func (e *Edit) CommitWithOptions(options CommitOptions) error {
+	call := e.client.service.Edits.Commit(e.client.packageName, e.editID).Context(e.ctx)
+	if options.ChangesNotSentForReview {
+		call = call.ChangesNotSentForReview(true)
+	}
+
+	_, err := call.Do()
 	if err != nil {
 		return fmt.Errorf("failed to commit edit: %w", err)
 	}

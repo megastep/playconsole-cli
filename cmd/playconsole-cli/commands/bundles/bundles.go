@@ -10,8 +10,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/googleapi"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -57,15 +57,15 @@ or fails if the timeout is reached.`,
 }
 
 var (
-	filePath    string
-	trackName   string
-	autoCommit  bool
-	releaseNotes string
+	filePath         string
+	trackName        string
+	autoCommit       bool
+	releaseNotes     string
 	releaseNotesLang string
-	rolloutPct  float64
-	versionCode int64
-	waitTimeout time.Duration
-	pollInterval time.Duration
+	rolloutPct       float64
+	versionCode      int64
+	waitTimeout      time.Duration
+	pollInterval     time.Duration
 )
 
 func init() {
@@ -73,6 +73,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to AAB file")
 	uploadCmd.Flags().StringVar(&trackName, "track", "", "track to assign (internal, alpha, beta, production)")
 	uploadCmd.Flags().BoolVar(&autoCommit, "commit", true, "automatically commit the edit")
+	cli.AddStageFlag(uploadCmd)
 	uploadCmd.Flags().StringVar(&releaseNotes, "release-notes", "", "release notes text")
 	uploadCmd.Flags().StringVar(&releaseNotesLang, "release-notes-lang", "en-US", "release notes language")
 	uploadCmd.Flags().Float64Var(&rolloutPct, "rollout", 100, "rollout percentage (only for production)")
@@ -103,6 +104,11 @@ type BundleInfo struct {
 
 func runUpload(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -197,10 +203,10 @@ func runUpload(cmd *cobra.Command, args []string) error {
 
 	// Commit if requested
 	if autoCommit {
-		if err := edit.Commit(); err != nil {
+		if err := edit.CommitWithOptions(commitOptions); err != nil {
 			return err
 		}
-		output.PrintSuccess("Edit committed")
+		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	} else {
 		output.PrintInfo("Edit ID: %s (not committed, use 'gpc edits commit' to commit)", edit.ID())
 	}

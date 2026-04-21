@@ -10,8 +10,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/googleapi"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -46,6 +46,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to APK file")
 	uploadCmd.Flags().StringVar(&trackName, "track", "", "track to assign")
 	uploadCmd.Flags().BoolVar(&autoCommit, "commit", true, "automatically commit the edit")
+	cli.AddStageFlag(uploadCmd)
 	uploadCmd.MarkFlagRequired("file")
 
 	APKsCmd.AddCommand(uploadCmd)
@@ -63,6 +64,11 @@ type APKInfo struct {
 
 func runUpload(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -143,10 +149,12 @@ func runUpload(cmd *cobra.Command, args []string) error {
 
 	// Commit if requested
 	if autoCommit {
-		if err := edit.Commit(); err != nil {
+		if err := edit.CommitWithOptions(commitOptions); err != nil {
 			return err
 		}
-		output.PrintSuccess("Edit committed")
+		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
+	} else {
+		output.PrintInfo("Edit ID: %s (not committed, use 'gpc edits commit' to commit)", edit.ID())
 	}
 
 	result := APKInfo{

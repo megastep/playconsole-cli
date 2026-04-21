@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -21,9 +21,9 @@ when you need manual control over the edit lifecycle.
 
 Workflow:
   1. gpc edits create    - Start a new edit session
-  2. Make changes (uploads, listing updates, etc.) with --no-auto-commit
+  2. Make changes with supported commands using --commit=false
   3. gpc edits validate  - Validate changes before committing
-  4. gpc edits commit    - Commit changes to make them live`,
+  4. gpc edits commit    - Commit changes live or stage them for later review`,
 }
 
 var createCmd = &cobra.Command{
@@ -69,6 +69,7 @@ func init() {
 
 	// Commit flags
 	commitCmd.Flags().StringVar(&editID, "edit-id", "", "edit ID")
+	cli.AddStageFlag(commitCmd)
 	commitCmd.MarkFlagRequired("edit-id")
 
 	// Delete flags
@@ -106,13 +107,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	output.PrintSuccess("Edit session created")
 	return output.Print(map[string]interface{}{
-		"edit_id":     edit.ID(),
-		"package":     cli.GetPackageName(),
-		"expires_in":  "1 hour",
+		"edit_id":    edit.ID(),
+		"package":    cli.GetPackageName(),
+		"expires_in": "1 hour",
 		"next_steps": []string{
-			"Make changes with --no-auto-commit flag",
+			"Make changes with supported commands using --commit=false",
 			fmt.Sprintf("Validate: gpc edits validate --edit-id %s", edit.ID()),
-			fmt.Sprintf("Commit: gpc edits commit --edit-id %s", edit.ID()),
+			fmt.Sprintf("Commit live: gpc edits commit --edit-id %s", edit.ID()),
+			fmt.Sprintf("Commit staged: gpc edits commit --edit-id %s --stage", edit.ID()),
 		},
 	})
 }
@@ -177,8 +179,17 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	if cli.IsDryRun() {
-		output.PrintInfo("Dry run: would commit edit '%s'", editID)
+		if commitOptions.ChangesNotSentForReview {
+			output.PrintInfo("Dry run: would commit edit '%s' and stage changes in Play Console (not sent for review)", editID)
+		} else {
+			output.PrintInfo("Dry run: would commit edit '%s'", editID)
+		}
 		return nil
 	}
 
@@ -193,11 +204,11 @@ func runCommit(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
-	output.PrintSuccess("Edit committed successfully")
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(map[string]interface{}{
 		"edit_id":   editID,
 		"committed": true,

@@ -46,6 +46,7 @@ func init() {
 	uploadCmd.Flags().Int64Var(&versionCode, "version-code", 0, "APK/AAB version code")
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to mapping file")
 	uploadCmd.Flags().StringVar(&fileType, "type", "proguard", "file type: proguard, native-code")
+	cli.AddStageFlag(uploadCmd)
 	uploadCmd.MarkFlagRequired("version-code")
 	uploadCmd.MarkFlagRequired("file")
 
@@ -61,6 +62,11 @@ type UploadResult struct {
 
 func runUpload(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -110,8 +116,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to upload deobfuscation file: %w", err)
 	}
 
-	// Commit edit
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
@@ -122,6 +127,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	}
 
 	output.PrintSuccess("Deobfuscation file uploaded for version %d", versionCode)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(result)
 }
 

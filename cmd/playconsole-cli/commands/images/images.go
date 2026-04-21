@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
+	"github.com/AndroidPoet/playconsole-cli/internal/cli"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
 )
 
@@ -77,11 +77,11 @@ Expected structure:
 }
 
 var (
-	locale    string
-	imageType string
-	imageID   string
-	filePath  string
-	syncDir   string
+	locale          string
+	imageType       string
+	imageID         string
+	filePath        string
+	syncDir         string
 	replaceExisting bool
 )
 
@@ -109,6 +109,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&locale, "locale", "", "locale code")
 	uploadCmd.Flags().StringVar(&imageType, "type", "", "image type")
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to image file")
+	cli.AddStageFlag(uploadCmd)
 	uploadCmd.MarkFlagRequired("locale")
 	uploadCmd.MarkFlagRequired("type")
 	uploadCmd.MarkFlagRequired("file")
@@ -117,6 +118,7 @@ func init() {
 	deleteCmd.Flags().StringVar(&locale, "locale", "", "locale code")
 	deleteCmd.Flags().StringVar(&imageType, "type", "", "image type")
 	deleteCmd.Flags().StringVar(&imageID, "id", "", "image ID to delete")
+	cli.AddStageFlag(deleteCmd)
 	deleteCmd.Flags().Bool("confirm", false, "confirm deletion")
 	deleteCmd.MarkFlagRequired("locale")
 	deleteCmd.MarkFlagRequired("type")
@@ -125,12 +127,14 @@ func init() {
 	// Delete all flags
 	deleteAllCmd.Flags().StringVar(&locale, "locale", "", "locale code")
 	deleteAllCmd.Flags().StringVar(&imageType, "type", "", "image type")
+	cli.AddStageFlag(deleteAllCmd)
 	deleteAllCmd.Flags().Bool("confirm", false, "confirm deletion")
 	deleteAllCmd.MarkFlagRequired("locale")
 	deleteAllCmd.MarkFlagRequired("type")
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing images")
+	cli.AddStageFlag(syncCmd)
 	syncCmd.Flags().BoolVar(&replaceExisting, "replace", false, "replace existing remote images for each synced locale/type")
 	syncCmd.MarkFlagRequired("dir")
 
@@ -143,9 +147,9 @@ func init() {
 
 // ImageInfo represents image information
 type ImageInfo struct {
-	ID  string `json:"id"`
-	URL string `json:"url,omitempty"`
-	SHA1 string `json:"sha1,omitempty"`
+	ID     string `json:"id"`
+	URL    string `json:"url,omitempty"`
+	SHA1   string `json:"sha1,omitempty"`
 	SHA256 string `json:"sha256,omitempty"`
 }
 
@@ -187,9 +191,9 @@ func runList(cmd *cobra.Command, args []string) error {
 	result := make([]ImageInfo, 0, len(images.Images))
 	for _, img := range images.Images {
 		result = append(result, ImageInfo{
-			ID:  img.Id,
-			URL: img.Url,
-			SHA1: img.Sha1,
+			ID:     img.Id,
+			URL:    img.Url,
+			SHA1:   img.Sha1,
 			SHA256: img.Sha256,
 		})
 	}
@@ -204,6 +208,11 @@ func runList(cmd *cobra.Command, args []string) error {
 
 func runUpload(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -250,20 +259,26 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("upload failed: %w", err)
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Image uploaded: %s", image.Image.Id)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(ImageInfo{
-		ID:  image.Image.Id,
-		SHA1: image.Image.Sha1,
+		ID:     image.Image.Id,
+		SHA1:   image.Image.Sha1,
 		SHA256: image.Image.Sha256,
 	})
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -297,16 +312,22 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("Image deleted: %s", imageID)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
 func runDeleteAll(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -340,16 +361,22 @@ func runDeleteAll(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := edit.Commit(); err != nil {
+	if err := edit.CommitWithOptions(commitOptions); err != nil {
 		return err
 	}
 
 	output.PrintSuccess("All images deleted for %s/%s", locale, imageType)
+	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return nil
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
 	if err := cli.RequirePackage(cmd); err != nil {
+		return err
+	}
+
+	commitOptions, err := cli.GetCommitOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -376,9 +403,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	type syncBatch struct {
-		locale string
+		locale    string
 		imageType string
-		files []string
+		files     []string
 	}
 
 	batches := make([]syncBatch, 0)
@@ -418,9 +445,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 			}
 
 			batches = append(batches, syncBatch{
-				locale: localeName,
+				locale:    localeName,
 				imageType: typeName,
-				files: fileNames,
+				files:     fileNames,
 			})
 		}
 	}
@@ -489,9 +516,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if mutated {
-		if err := edit.Commit(); err != nil {
+		if err := edit.CommitWithOptions(commitOptions); err != nil {
 			return err
 		}
+		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	}
 
 	output.PrintSuccess("Uploaded %d image(s)", uploaded)
