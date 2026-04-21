@@ -80,6 +80,11 @@ func PrintEditCommitSuccess(staged bool) {
 	PrintSuccess("Edit committed")
 }
 
+// PrintEditOpen prints the appropriate message when an edit is left open.
+func PrintEditOpen(editID string) {
+	PrintSuccess("Edit left open with edit_id: %s", editID)
+}
+
 // PrintInfo prints an info message (respects quiet mode)
 func PrintInfo(format string, args ...interface{}) {
 	if !quietMode {

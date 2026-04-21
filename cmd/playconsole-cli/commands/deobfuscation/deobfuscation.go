@@ -65,7 +65,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to upload deobfuscation file: %w", err)
 	}
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
@@ -127,7 +127,6 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	}
 
 	output.PrintSuccess("Deobfuscation file uploaded for version %d", versionCode)
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(result)
 }
 

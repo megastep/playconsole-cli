@@ -33,8 +33,8 @@ Upload and manage Android App Bundles.
 
 ```bash
 gpc bundles upload --file app.aab --track internal    # Upload AAB to track
-gpc bundles upload --file app.aab --track production --stage  # Commit and stage for later review
-gpc bundles upload --file app.aab --track production --commit=false  # Leave edit open
+gpc bundles upload --file app.aab --track production --edit-mode=stage  # Commit and stage for later review
+gpc bundles upload --file app.aab --track production --edit-mode=open   # Leave edit open
 gpc bundles list                                       # List uploaded bundles
 gpc bundles find --version-code 42                     # Find bundle by version code
 gpc bundles wait --version-code 42                     # Wait for processing to complete
@@ -48,8 +48,8 @@ Manage APKs (legacy — prefer bundles).
 
 ```bash
 gpc apks upload --file app.apk                         # Upload APK (deprecated)
-gpc apks upload --file app.apk --stage                 # Commit and stage for later review
-gpc apks upload --file app.apk --commit=false          # Leave edit open
+gpc apks upload --file app.apk --edit-mode=stage       # Commit and stage for later review
+gpc apks upload --file app.apk --edit-mode=open        # Leave edit open
 gpc apks list                                          # List APKs
 ```
 
@@ -61,7 +61,7 @@ Manage release tracks (internal, alpha, beta, production).
 gpc tracks list                                        # List all tracks
 gpc tracks get --track production                      # Get track details
 gpc tracks update --track production --rollout-percentage 50      # Staged rollout
-gpc tracks update --track production --rollout-percentage 50 --stage  # Commit but do not send for review
+gpc tracks update --track production --rollout-percentage 50 --edit-mode=stage  # Commit but do not send for review
 gpc tracks promote --from internal --to beta           # Promote release
 gpc tracks halt --track production                     # Halt rollout
 gpc tracks complete --track production                 # Complete to 100%
@@ -74,7 +74,7 @@ Upload ProGuard/R8 mapping files or native debug symbols for crash symbolication
 ```bash
 gpc deobfuscation upload --version-code 42 --file mapping.txt --type proguard
 gpc deobfuscation upload --version-code 42 --file symbols.zip --type native-code
-gpc deobfuscation upload --version-code 42 --file mapping.txt --stage
+gpc deobfuscation upload --version-code 42 --file mapping.txt --edit-mode=stage
 ```
 
 **Types:**
@@ -95,8 +95,9 @@ Manage localized store listings.
 gpc listings list                                      # List all locales
 gpc listings get --locale en-US                        # Get specific locale
 gpc listings update --locale en-US --title "My App"    # Update listing
-gpc listings update --locale en-US --title "My App" --stage
+gpc listings update --locale en-US --title "My App" --edit-mode=stage
 gpc listings sync --dir ./metadata/                    # Sync from directory
+gpc listings sync --dir ./metadata/ --edit-mode=open   # Leave the synced edit open
 ```
 
 ### images
@@ -106,15 +107,16 @@ Manage screenshots and promotional graphics.
 ```bash
 gpc images list --locale en-US --type phoneScreenshots
 gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png
-gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png --stage
+gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png --edit-mode=stage
 gpc images delete --locale en-US --type phoneScreenshots --id image-id
 gpc images delete-all --locale en-US --type phoneScreenshots
 gpc images sync --dir ./screenshots/
-gpc images sync --dir ./screenshots/ --stage
+gpc images sync --dir ./screenshots/ --edit-mode=stage
+gpc images sync --dir ./screenshots/ --edit-mode=open
 gpc images sync --dir ./screenshots/ --replace
 ```
 
-`gpc images sync` appends uploads by default. Add `--replace` to delete existing remote images for each discovered `locale/type` pair before uploading the local files for that pair. Add `--stage` to commit the synced changes without sending them for review immediately.
+`gpc images sync` appends uploads by default. Add `--replace` to delete existing remote images for each discovered `locale/type` pair before uploading the local files for that pair. Use `--edit-mode=stage` to commit the synced changes without sending them for review immediately, or `--edit-mode=open` to leave the edit open.
 
 ---
 
@@ -281,7 +283,7 @@ gpc testing internal list               # List internal test builds
 gpc testing internal-sharing upload --file app.aab   # Get instant test link
 gpc testing testers list --track beta   # List testers
 gpc testing testers add --track beta --emails "dev@company.com"
-gpc testing testers add --track beta --emails "dev@company.com" --stage
+gpc testing testers add --track beta --emails "dev@company.com" --edit-mode=stage
 gpc testing testers add --track beta --emails-file testers.txt
 gpc testing testers remove --track beta --emails "dev@company.com"
 gpc testing tester-groups list          # List tester groups
@@ -316,12 +318,12 @@ gpc edits create                        # Start new edit session
 gpc edits get --edit-id EDIT_ID         # Get existing edit
 gpc edits validate --edit-id EDIT_ID    # Validate changes
 gpc edits commit --edit-id EDIT_ID      # Commit edit (go live)
-gpc edits commit --edit-id EDIT_ID --stage  # Commit edit without sending for review
-gpc bundles upload --file app.aab --commit=false  # Keep the edit open
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage  # Commit edit without sending for review
+gpc bundles upload --file app.aab --edit-mode=open    # Keep the edit open
 gpc edits delete --edit-id EDIT_ID      # Discard edit
 ```
 
-Use `--stage` on edit-backed mutating commands to commit changes into Play Console without sending them for review immediately.
+Use `--edit-mode=live|stage|open` on edit-backed mutating commands to control whether the edit is committed live, committed without sending for review, or left open. During rollout, `--stage` still maps to `--edit-mode=stage` and `--commit=false` still maps to `--edit-mode=open`, but prefer the global flag.
 
 ### availability
 
@@ -330,8 +332,9 @@ Manage country targeting per release track.
 ```bash
 gpc availability list --track production
 gpc availability update --track production --countries US,GB,DE,FR --confirm
-gpc availability update --track production --countries US,GB --confirm --stage
+gpc availability update --track production --countries US,GB --confirm --edit-mode=stage
 gpc availability update --track production --countries US --include-rest=false --confirm
+gpc availability update --track production --countries US --include-rest=false --confirm --edit-mode=open
 ```
 
 ### device-tiers

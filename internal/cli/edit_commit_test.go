@@ -6,57 +6,143 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestGetCommitOptions(t *testing.T) {
-	cmd := &cobra.Command{Use: "test"}
-	AddStageFlag(cmd)
+func TestGetEditSubmissionDefaultsToLive(t *testing.T) {
+	cmd := newEditSubmissionTestCommand()
 
-	options, err := GetCommitOptions(cmd)
+	submission, err := GetEditSubmission(cmd, true)
 	if err != nil {
-		t.Fatalf("GetCommitOptions() error = %v", err)
+		t.Fatalf("GetEditSubmission() error = %v", err)
 	}
-	if options.ChangesNotSentForReview {
+	if submission.Mode != EditSubmissionModeLive {
+		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeLive)
+	}
+	if submission.LeaveOpen {
+		t.Fatalf("LeaveOpen = true, want false")
+	}
+	if submission.CommitOptions.ChangesNotSentForReview {
 		t.Fatalf("ChangesNotSentForReview = true, want false")
 	}
+}
 
+func TestGetEditSubmissionStageAlias(t *testing.T) {
+	cmd := newEditSubmissionTestCommand()
 	if err := cmd.Flags().Set("stage", "true"); err != nil {
 		t.Fatalf("set stage flag: %v", err)
 	}
 
-	options, err = GetCommitOptions(cmd)
+	submission, err := GetEditSubmission(cmd, true)
 	if err != nil {
-		t.Fatalf("GetCommitOptions() error = %v", err)
+		t.Fatalf("GetEditSubmission() error = %v", err)
 	}
-	if !options.ChangesNotSentForReview {
+	if submission.Mode != EditSubmissionModeStage {
+		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeStage)
+	}
+	if !submission.CommitOptions.ChangesNotSentForReview {
 		t.Fatalf("ChangesNotSentForReview = false, want true")
 	}
 }
 
-func TestGetCommitOptionsWithoutStageFlag(t *testing.T) {
-	cmd := &cobra.Command{Use: "test"}
-
-	options, err := GetCommitOptions(cmd)
-	if err != nil {
-		t.Fatalf("GetCommitOptions() error = %v", err)
-	}
-	if options.ChangesNotSentForReview {
-		t.Fatalf("ChangesNotSentForReview = true, want false")
-	}
-}
-
-func TestGetCommitOptionsRejectsStageWithoutCommit(t *testing.T) {
-	cmd := &cobra.Command{Use: "test"}
-	cmd.Flags().Bool("commit", true, "")
-	AddStageFlag(cmd)
-
+func TestGetEditSubmissionOpenAlias(t *testing.T) {
+	cmd := newEditSubmissionTestCommand()
 	if err := cmd.Flags().Set("commit", "false"); err != nil {
 		t.Fatalf("set commit flag: %v", err)
 	}
-	if err := cmd.Flags().Set("stage", "true"); err != nil {
-		t.Fatalf("set stage flag: %v", err)
+
+	submission, err := GetEditSubmission(cmd, true)
+	if err != nil {
+		t.Fatalf("GetEditSubmission() error = %v", err)
+	}
+	if submission.Mode != EditSubmissionModeOpen {
+		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeOpen)
+	}
+	if !submission.LeaveOpen {
+		t.Fatalf("LeaveOpen = false, want true")
+	}
+}
+
+func TestGetEditSubmissionEditModeFlag(t *testing.T) {
+	cmd := newEditSubmissionTestCommand()
+	if err := cmd.Flags().Set("edit-mode", "stage"); err != nil {
+		t.Fatalf("set edit-mode flag: %v", err)
 	}
 
-	_, err := GetCommitOptions(cmd)
-	if err == nil || err.Error() != "--stage requires --commit=true" {
-		t.Fatalf("GetCommitOptions() error = %v, want %q", err, "--stage requires --commit=true")
+	submission, err := GetEditSubmission(cmd, true)
+	if err != nil {
+		t.Fatalf("GetEditSubmission() error = %v", err)
 	}
+	if submission.Mode != EditSubmissionModeStage {
+		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeStage)
+	}
+}
+
+func TestGetEditSubmissionRejectsConflictingFlags(t *testing.T) {
+	testCases := []struct {
+		name       string
+		configure  func(*cobra.Command) error
+		wantErrMsg string
+	}{
+		{
+			name: "edit mode live conflicts with stage",
+			configure: func(cmd *cobra.Command) error {
+				if err := cmd.Flags().Set("edit-mode", "live"); err != nil {
+					return err
+				}
+				return cmd.Flags().Set("stage", "true")
+			},
+			wantErrMsg: "conflicting edit submission flags: --edit-mode=live conflicts with --stage; use a single --edit-mode=live|stage|open flag",
+		},
+		{
+			name: "stage conflicts with commit false",
+			configure: func(cmd *cobra.Command) error {
+				if err := cmd.Flags().Set("stage", "true"); err != nil {
+					return err
+				}
+				return cmd.Flags().Set("commit", "false")
+			},
+			wantErrMsg: "conflicting edit submission flags: --stage conflicts with --commit=false; use a single --edit-mode=live|stage|open flag",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := newEditSubmissionTestCommand()
+			if err := tc.configure(cmd); err != nil {
+				t.Fatalf("configure flags: %v", err)
+			}
+
+			_, err := GetEditSubmission(cmd, true)
+			if err == nil || err.Error() != tc.wantErrMsg {
+				t.Fatalf("GetEditSubmission() error = %v, want %q", err, tc.wantErrMsg)
+			}
+		})
+	}
+}
+
+func TestGetEditSubmissionRejectsOpenWhenUnsupported(t *testing.T) {
+	cmd := newEditSubmissionTestCommand()
+	if err := cmd.Flags().Set("edit-mode", "open"); err != nil {
+		t.Fatalf("set edit-mode flag: %v", err)
+	}
+
+	_, err := GetEditSubmission(cmd, false)
+	wantErr := "--edit-mode=open is not supported for test; use --edit-mode=live or --edit-mode=stage"
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("GetEditSubmission() error = %v, want %q", err, wantErr)
+	}
+}
+
+func TestParseEditSubmissionModeRejectsInvalidValue(t *testing.T) {
+	_, err := ParseEditSubmissionMode("draft")
+	wantErr := `invalid --edit-mode "draft": must be one of live, stage, open`
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("ParseEditSubmissionMode() error = %v, want %q", err, wantErr)
+	}
+}
+
+func newEditSubmissionTestCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().String("edit-mode", "live", "")
+	cmd.Flags().Bool("commit", true, "")
+	AddStageFlag(cmd)
+	return cmd
 }

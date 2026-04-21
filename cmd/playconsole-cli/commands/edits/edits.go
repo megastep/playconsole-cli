@@ -21,7 +21,7 @@ when you need manual control over the edit lifecycle.
 
 Workflow:
   1. gpc edits create    - Start a new edit session
-  2. Make changes with supported commands using --commit=false
+  2. Make changes with supported commands using --edit-mode=open
   3. gpc edits validate  - Validate changes before committing
   4. gpc edits commit    - Commit changes live or stage them for later review`,
 }
@@ -111,10 +111,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		"package":    cli.GetPackageName(),
 		"expires_in": "1 hour",
 		"next_steps": []string{
-			"Make changes with supported commands using --commit=false",
+			"Make changes with supported commands using --edit-mode=open",
 			fmt.Sprintf("Validate: gpc edits validate --edit-id %s", edit.ID()),
 			fmt.Sprintf("Commit live: gpc edits commit --edit-id %s", edit.ID()),
-			fmt.Sprintf("Commit staged: gpc edits commit --edit-id %s --stage", edit.ID()),
+			fmt.Sprintf("Commit staged: gpc edits commit --edit-id %s --edit-mode=stage", edit.ID()),
 		},
 	})
 }
@@ -179,13 +179,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, false)
 	if err != nil {
 		return err
 	}
 
 	if cli.IsDryRun() {
-		if commitOptions.ChangesNotSentForReview {
+		if submission.Mode == cli.EditSubmissionModeStage {
 			output.PrintInfo("Dry run: would commit edit '%s' and stage changes in Play Console (not sent for review)", editID)
 		} else {
 			output.PrintInfo("Dry run: would commit edit '%s'", editID)
@@ -204,11 +204,10 @@ func runCommit(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	if err := edit.CommitWithOptions(commitOptions); err != nil {
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 		return err
 	}
 
-	output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
 	return output.Print(map[string]interface{}{
 		"edit_id":   editID,
 		"committed": true,

@@ -23,6 +23,7 @@ var (
 	debug       bool
 	timeout     string
 	dryRun      bool
+	editMode    string
 
 	versionStr string
 	commitStr  string
@@ -103,6 +104,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "show API requests/responses")
 	rootCmd.PersistentFlags().StringVar(&timeout, "timeout", "60s", "request timeout")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without applying")
+	rootCmd.PersistentFlags().StringVar(&editMode, "edit-mode", "live", "edit submission mode for edit-backed mutating commands: live, stage, open")
 
 	// Bind to viper
 	viper.BindPFlag("package", rootCmd.PersistentFlags().Lookup("package"))

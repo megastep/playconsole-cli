@@ -26,7 +26,8 @@ func TestRunUploadRejectsStageWithoutCommit(t *testing.T) {
 	}
 
 	err := runUpload(cmd, nil)
-	if err == nil || err.Error() != "--stage requires --commit=true" {
-		t.Fatalf("runUpload() error = %v, want %q", err, "--stage requires --commit=true")
+	wantErr := "conflicting edit submission flags: --stage conflicts with --commit=false; use a single --edit-mode=live|stage|open flag"
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("runUpload() error = %v, want %q", err, wantErr)
 	}
 }

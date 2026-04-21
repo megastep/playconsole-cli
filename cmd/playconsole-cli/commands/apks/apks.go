@@ -37,15 +37,14 @@ var listCmd = &cobra.Command{
 }
 
 var (
-	filePath   string
-	trackName  string
-	autoCommit bool
+	filePath  string
+	trackName string
 )
 
 func init() {
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to APK file")
 	uploadCmd.Flags().StringVar(&trackName, "track", "", "track to assign")
-	uploadCmd.Flags().BoolVar(&autoCommit, "commit", true, "automatically commit the edit")
+	uploadCmd.Flags().Bool("commit", true, "automatically commit the edit")
 	cli.AddStageFlag(uploadCmd)
 	uploadCmd.MarkFlagRequired("file")
 
@@ -67,7 +66,7 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	commitOptions, err := cli.GetCommitOptions(cmd)
+	submission, err := cli.GetEditSubmission(cmd, true)
 	if err != nil {
 		return err
 	}
@@ -147,14 +146,8 @@ func runUpload(cmd *cobra.Command, args []string) error {
 		output.PrintSuccess("Assigned to track: %s", trackName)
 	}
 
-	// Commit if requested
-	if autoCommit {
-		if err := edit.CommitWithOptions(commitOptions); err != nil {
-			return err
-		}
-		output.PrintEditCommitSuccess(commitOptions.ChangesNotSentForReview)
-	} else {
-		output.PrintInfo("Edit ID: %s (not committed, use 'gpc edits commit' to commit)", edit.ID())
+	if err := cli.ApplyEditSubmission(edit, submission); err != nil {
+		return err
 	}
 
 	result := APKInfo{
