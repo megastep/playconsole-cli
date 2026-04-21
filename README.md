@@ -101,7 +101,7 @@ gpc bundles upload --file app.aab --track internal
 gpc bundles upload --file app.aab --track production --stage
 gpc bundles upload --file app.aab --track production --commit=false
 gpc edits commit --edit-id EDIT_ID --stage
-gpc tracks promote --from internal --to production --rollout 10
+gpc tracks promote --from internal --to production --rollout-percentage 10
 ```
 
 ---
@@ -120,7 +120,7 @@ gpc bundles find --version-code 42                     # Find by version code
 gpc bundles wait --version-code 42                     # Wait for processing
 gpc tracks list                                        # List tracks
 gpc tracks promote --from internal --to beta           # Promote
-gpc tracks update --track production --rollout 50     # Staged rollout
+gpc tracks update --track production --rollout-percentage 50  # Staged rollout
 gpc tracks halt --track production                    # Emergency halt
 gpc deobfuscation upload --version-code 42 --file mapping.txt  # Crash symbolication
 ```
@@ -188,7 +188,7 @@ gpc reports types                                      # Report type info
 
 ```bash
 gpc testing internal-sharing upload --file app.aab   # Instant test link
-gpc testing testers add --track beta --email "dev@company.com"
+gpc testing testers add --track beta --emails "dev@company.com"
 ```
 
 ### 👥 Team
@@ -242,7 +242,7 @@ jobs:
           GPC_PACKAGE: com.yourcompany.app
         run: |
           gpc bundles upload --file app/build/outputs/bundle/release/app-release.aab --track internal
-          gpc tracks promote --from internal --to production --rollout 10
+          gpc tracks promote --from internal --to production --rollout-percentage 10
 ```
 
 ### Encode Credentials for CI
