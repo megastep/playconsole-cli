@@ -102,7 +102,10 @@ gpc images upload --locale en-US --type phoneScreenshots --file screenshot.png
 gpc images delete --locale en-US --type phoneScreenshots --sha1 abc123
 gpc images delete-all --locale en-US --type phoneScreenshots
 gpc images sync --dir ./screenshots/
+gpc images sync --dir ./screenshots/ --replace
 ```
+
+`gpc images sync` appends uploads by default. Add `--replace` to delete existing remote images for each discovered `locale/type` pair before uploading the local files for that pair.
 
 ---
 
