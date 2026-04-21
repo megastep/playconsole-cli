@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/AndroidPoet/playconsole-cli/internal/api"
 	"github.com/AndroidPoet/playconsole-cli/internal/output"
@@ -124,9 +125,17 @@ func resolveEditSubmissionMode(cmd *cobra.Command) (EditSubmissionMode, error) {
 		}
 	}
 
-	if selectedSource == "" {
-		return EditSubmissionModeLive, nil
+	if selectedSource != "" {
+		return selectedMode, nil
 	}
 
-	return selectedMode, nil
+	if viper.IsSet("edit-mode") {
+		return ParseEditSubmissionMode(viper.GetString("edit-mode"))
+	}
+
+	if flag := cmd.Flags().Lookup("edit-mode"); flag != nil {
+		return ParseEditSubmissionMode(flag.Value.String())
+	}
+
+	return EditSubmissionModeLive, nil
 }

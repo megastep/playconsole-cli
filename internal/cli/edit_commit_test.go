@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func TestGetEditSubmissionDefaultsToLive(t *testing.T) {
@@ -72,6 +73,25 @@ func TestGetEditSubmissionEditModeFlag(t *testing.T) {
 	}
 	if submission.Mode != EditSubmissionModeStage {
 		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeStage)
+	}
+}
+
+func TestGetEditSubmissionFallsBackToConfiguredEditMode(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.Set("edit-mode", "stage")
+
+	cmd := newEditSubmissionTestCommand()
+
+	submission, err := GetEditSubmission(cmd, true)
+	if err != nil {
+		t.Fatalf("GetEditSubmission() error = %v", err)
+	}
+	if submission.Mode != EditSubmissionModeStage {
+		t.Fatalf("Mode = %q, want %q", submission.Mode, EditSubmissionModeStage)
+	}
+	if !submission.CommitOptions.ChangesNotSentForReview {
+		t.Fatalf("ChangesNotSentForReview = false, want true")
 	}
 }
 

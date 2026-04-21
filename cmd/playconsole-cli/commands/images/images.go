@@ -466,6 +466,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if len(batches) == 0 {
+		output.PrintSuccess("Uploaded %d image(s)", uploaded)
+		return nil
+	}
+
 	client, err := api.NewClient(cli.GetPackageName(), 5*time.Minute)
 	if err != nil {
 		return err
@@ -516,6 +521,8 @@ func runSync(cmd *cobra.Command, args []string) error {
 		if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 			return err
 		}
+	} else if err := edit.Delete(); err != nil {
+		return err
 	}
 
 	output.PrintSuccess("Uploaded %d image(s)", uploaded)

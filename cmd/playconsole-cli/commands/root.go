@@ -108,6 +108,7 @@ func init() {
 
 	// Bind to viper
 	viper.BindPFlag("package", rootCmd.PersistentFlags().Lookup("package"))
+	viper.BindPFlag("edit-mode", rootCmd.PersistentFlags().Lookup("edit-mode"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
@@ -115,6 +116,7 @@ func init() {
 
 	// Environment variable bindings
 	viper.BindEnv("package", "GPC_PACKAGE")
+	viper.BindEnv("edit-mode", "GPC_EDIT_MODE")
 	viper.BindEnv("profile", "GPC_PROFILE")
 	viper.BindEnv("output", "GPC_OUTPUT")
 	viper.BindEnv("debug", "GPC_DEBUG")

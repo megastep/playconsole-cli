@@ -82,7 +82,7 @@ func PrintEditCommitSuccess(staged bool) {
 
 // PrintEditOpen prints the appropriate message when an edit is left open.
 func PrintEditOpen(editID string) {
-	PrintSuccess("Edit left open with edit_id: %s", editID)
+	PrintSuccess("Edit left open with edit_id: %s (not committed, use 'gpc edits commit' to finalize)", editID)
 }
 
 // PrintInfo prints an info message (respects quiet mode)

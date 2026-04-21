@@ -339,6 +339,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 		if err := cli.ApplyEditSubmission(edit, submission); err != nil {
 			return err
 		}
+	} else if !cli.IsDryRun() {
+		if err := edit.Delete(); err != nil {
+			return err
+		}
 	}
 
 	output.PrintSuccess("Synced %d locale(s)", updated)
