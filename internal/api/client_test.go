@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
 )
@@ -34,8 +35,6 @@ func newTestEdit(t *testing.T, handler http.HandlerFunc) *Edit {
 			timeout:     time.Second,
 		},
 		editID: "edit-123",
-		ctx:    context.Background(),
-		cancel: func() {},
 	}
 }
 
@@ -64,5 +63,19 @@ func TestCommitWithOptionsStagesChanges(t *testing.T) {
 
 	if err := edit.CommitWithOptions(CommitOptions{ChangesNotSentForReview: true}); err != nil {
 		t.Fatalf("CommitWithOptions() error = %v", err)
+	}
+}
+
+func TestResolveConfiguredTimeoutUsesViperValue(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.Set("timeout", "15m")
+
+	got, err := resolveConfiguredTimeout(30 * time.Second)
+	if err != nil {
+		t.Fatalf("resolveConfiguredTimeout() error = %v", err)
+	}
+	if got != 15*time.Minute {
+		t.Fatalf("resolveConfiguredTimeout() = %s, want %s", got, 15*time.Minute)
 	}
 }

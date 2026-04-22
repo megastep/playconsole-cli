@@ -137,14 +137,17 @@ func runGet(cmd *cobra.Command, args []string) error {
 	defer edit.Delete() // Don't commit, just checking access
 
 	// Get app details
-	ctx := edit.Context()
-	details, err := edit.Details().Get(client.GetPackageName(), edit.ID()).Context(ctx).Do()
+	detailsCtx, cancel := edit.RequestContext()
+	details, err := edit.Details().Get(client.GetPackageName(), edit.ID()).Context(detailsCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
 
 	// Get available tracks for additional info
-	tracks, err := edit.Tracks().List(client.GetPackageName(), edit.ID()).Context(ctx).Do()
+	tracksCtx, cancel := edit.RequestContext()
+	tracks, err := edit.Tracks().List(client.GetPackageName(), edit.ID()).Context(tracksCtx).Do()
+	cancel()
 	if err != nil {
 		// Non-fatal, just means we can't get track info
 		tracks = nil

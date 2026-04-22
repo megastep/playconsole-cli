@@ -22,6 +22,10 @@ type ReportingClient struct {
 // NewReportingClient creates a new Reporting API client
 func NewReportingClient(packageName string, timeout time.Duration) (*ReportingClient, error) {
 	ctx := context.Background()
+	resolvedTimeout, err := resolveConfiguredTimeout(timeout)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get credentials
 	creds, err := config.GetCredentials()
@@ -52,7 +56,7 @@ func NewReportingClient(packageName string, timeout time.Duration) (*ReportingCl
 	return &ReportingClient{
 		service:     service,
 		packageName: packageName,
-		timeout:     timeout,
+		timeout:     resolvedTimeout,
 	}, nil
 }
 

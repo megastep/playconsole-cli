@@ -302,10 +302,10 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	// Get source track
-	sourceTrack, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), fromTrack).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	sourceTrack, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), fromTrack).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		return fmt.Errorf("failed to get source track '%s': %w", fromTrack, err)
 	}
@@ -345,7 +345,9 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update destination track
-	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), toTrack, destTrack).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), toTrack, destTrack).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -380,10 +382,10 @@ func runHalt(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	// Get current track
-	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), trackName).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), trackName).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -400,7 +402,9 @@ func runHalt(cmd *cobra.Command, args []string) error {
 		return output.Print(track)
 	}
 
-	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), trackName, track).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), trackName, track).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -434,10 +438,10 @@ func runComplete(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	// Get current track
-	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), trackName).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), trackName).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -455,7 +459,9 @@ func runComplete(cmd *cobra.Command, args []string) error {
 		return output.Print(track)
 	}
 
-	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), trackName, track).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	updated, err := edit.Tracks().Update(client.GetPackageName(), edit.ID(), trackName, track).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}

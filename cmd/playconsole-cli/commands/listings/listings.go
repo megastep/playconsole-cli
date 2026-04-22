@@ -200,10 +200,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	// Get existing listing to preserve unchanged fields
-	existing, err := edit.Listings().Get(client.GetPackageName(), edit.ID(), locale).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	existing, err := edit.Listings().Get(client.GetPackageName(), edit.ID(), locale).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		// If listing doesn't exist, create new
 		existing = &androidpublisher.Listing{
@@ -227,7 +227,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return output.Print(existing)
 	}
 
-	updated, err := edit.Listings().Update(client.GetPackageName(), edit.ID(), locale, existing).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	updated, err := edit.Listings().Update(client.GetPackageName(), edit.ID(), locale, existing).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -285,7 +287,6 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
 	updated := 0
 
 	for _, entry := range entries {
@@ -325,7 +326,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		ctx, cancel := edit.RequestContext()
 		_, err := edit.Listings().Update(client.GetPackageName(), edit.ID(), localeName, listing).Context(ctx).Do()
+		cancel()
 		if err != nil {
 			output.PrintWarning("Failed to update locale '%s': %v", localeName, err)
 			continue

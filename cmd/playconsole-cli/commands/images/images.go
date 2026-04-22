@@ -575,12 +575,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	for _, batch := range batches {
 		if replaceExisting {
 			output.PrintInfo("Replacing existing images for %s/%s", batch.locale, batch.imageType)
-			if _, err := edit.Images().Deleteall(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Context(ctx).Do(); err != nil {
+			ctx, cancel := edit.RequestContext()
+			_, err := edit.Images().Deleteall(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Context(ctx).Do()
+			cancel()
+			if err != nil {
 				output.PrintWarning("Failed to delete existing images for %s/%s: %v", batch.locale, batch.imageType, err)
 				continue
 			}
@@ -606,7 +607,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 				reader = newProgressReader(file, fileInfo.Size(), filepath.Join(batch.locale, batch.imageType, fileName))
 			}
 
+			ctx, cancel := edit.RequestContext()
 			_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Media(reader).Context(ctx).Do()
+			cancel()
 			file.Close()
 
 			if err != nil {

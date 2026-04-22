@@ -319,10 +319,10 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
 	// Get existing testers
-	existing, err := edit.Testers().Get(client.GetPackageName(), edit.ID(), trackName).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	existing, err := edit.Testers().Get(client.GetPackageName(), edit.ID(), trackName).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		// If no testers exist yet, start fresh
 		existing = &androidpublisher.Testers{}
@@ -343,7 +343,9 @@ func runTestersAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update testers
-	_, err = edit.Testers().Update(client.GetPackageName(), edit.ID(), trackName, existing).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	_, err = edit.Testers().Update(client.GetPackageName(), edit.ID(), trackName, existing).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -391,9 +393,9 @@ func runTestersRemove(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
-	ctx := edit.Context()
-
-	existing, err := edit.Testers().Get(client.GetPackageName(), edit.ID(), trackName).Context(ctx).Do()
+	getCtx, cancel := edit.RequestContext()
+	existing, err := edit.Testers().Get(client.GetPackageName(), edit.ID(), trackName).Context(getCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}
@@ -416,7 +418,9 @@ func runTestersRemove(cmd *cobra.Command, args []string) error {
 
 	existing.GoogleGroups = newGroups
 
-	_, err = edit.Testers().Update(client.GetPackageName(), edit.ID(), trackName, existing).Context(ctx).Do()
+	updateCtx, cancel := edit.RequestContext()
+	_, err = edit.Testers().Update(client.GetPackageName(), edit.ID(), trackName, existing).Context(updateCtx).Do()
+	cancel()
 	if err != nil {
 		return err
 	}

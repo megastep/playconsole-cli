@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/spf13/viper"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
@@ -31,9 +33,27 @@ func (t *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
+func resolveConfiguredTimeout(fallback time.Duration) (time.Duration, error) {
+	value := strings.TrimSpace(viper.GetString("timeout"))
+	if value == "" {
+		return fallback, nil
+	}
+
+	timeout, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timeout %q: %w", value, err)
+	}
+
+	return timeout, nil
+}
+
 // NewClient creates a new API client
 func NewClient(packageName string, timeout time.Duration) (*Client, error) {
 	ctx := context.Background()
+	resolvedTimeout, err := resolveConfiguredTimeout(timeout)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get credentials
 	creds, err := config.GetCredentials()
@@ -64,7 +84,7 @@ func NewClient(packageName string, timeout time.Duration) (*Client, error) {
 	return &Client{
 		service:     service,
 		packageName: packageName,
-		timeout:     timeout,
+		timeout:     resolvedTimeout,
 		debug:       config.IsDebug(),
 	}, nil
 }
@@ -153,8 +173,6 @@ func (c *Client) SystemAPKs() *androidpublisher.SystemapksService {
 type Edit struct {
 	client *Client
 	editID string
-	ctx    context.Context
-	cancel context.CancelFunc
 }
 
 // CommitOptions configures how an edit is committed.
@@ -165,36 +183,32 @@ type CommitOptions struct {
 // CreateEdit creates a new edit session
 func (c *Client) CreateEdit() (*Edit, error) {
 	ctx, cancel := c.Context()
+	defer cancel()
 
 	edit, err := c.service.Edits.Insert(c.packageName, nil).Context(ctx).Do()
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to create edit: %w", err)
 	}
 
 	return &Edit{
 		client: c,
 		editID: edit.Id,
-		ctx:    ctx,
-		cancel: cancel,
 	}, nil
 }
 
 // GetEdit returns an existing edit by ID
 func (c *Client) GetEdit(editID string) (*Edit, error) {
 	ctx, cancel := c.Context()
+	defer cancel()
 
 	edit, err := c.service.Edits.Get(c.packageName, editID).Context(ctx).Do()
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("failed to get edit: %w", err)
 	}
 
 	return &Edit{
 		client: c,
 		editID: edit.Id,
-		ctx:    ctx,
-		cancel: cancel,
 	}, nil
 }
 
@@ -205,12 +219,21 @@ func (e *Edit) ID() string {
 
 // Context returns the edit context
 func (e *Edit) Context() context.Context {
-	return e.ctx
+	ctx, _ := e.client.Context()
+	return ctx
+}
+
+// RequestContext returns a fresh request-scoped context with timeout.
+func (e *Edit) RequestContext() (context.Context, context.CancelFunc) {
+	return e.client.Context()
 }
 
 // Validate validates the edit
 func (e *Edit) Validate() error {
-	_, err := e.client.service.Edits.Validate(e.client.packageName, e.editID).Context(e.ctx).Do()
+	ctx, cancel := e.RequestContext()
+	defer cancel()
+
+	_, err := e.client.service.Edits.Validate(e.client.packageName, e.editID).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("edit validation failed: %w", err)
 	}
@@ -224,7 +247,10 @@ func (e *Edit) Commit() error {
 
 // CommitWithOptions commits the edit using the supplied commit options.
 func (e *Edit) CommitWithOptions(options CommitOptions) error {
-	call := e.client.service.Edits.Commit(e.client.packageName, e.editID).Context(e.ctx)
+	ctx, cancel := e.RequestContext()
+	defer cancel()
+
+	call := e.client.service.Edits.Commit(e.client.packageName, e.editID).Context(ctx)
 	if options.ChangesNotSentForReview {
 		call = call.ChangesNotSentForReview(true)
 	}
@@ -238,7 +264,10 @@ func (e *Edit) CommitWithOptions(options CommitOptions) error {
 
 // Delete deletes the edit without committing
 func (e *Edit) Delete() error {
-	err := e.client.service.Edits.Delete(e.client.packageName, e.editID).Context(e.ctx).Do()
+	ctx, cancel := e.RequestContext()
+	defer cancel()
+
+	err := e.client.service.Edits.Delete(e.client.packageName, e.editID).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to delete edit: %w", err)
 	}
@@ -247,7 +276,6 @@ func (e *Edit) Delete() error {
 
 // Close releases resources
 func (e *Edit) Close() {
-	e.cancel()
 }
 
 // Tracks returns the tracks service for this edit
