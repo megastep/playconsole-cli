@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -162,9 +163,34 @@ func TestParseEditSubmissionModeRejectsInvalidValue(t *testing.T) {
 	}
 }
 
-func TestApplyEditSubmissionFallsBackWhenStageIsAutoReviewed(t *testing.T) {
+func TestApplyEditSubmissionStageFailureDoesNotFallBackToLiveCommit(t *testing.T) {
 	edit := &fakeEditCommitter{
 		id: "edit-123",
+		commitWithOptionsErr: errors.New("Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set."),
+	}
+
+	err := applyEditSubmission(edit, EditSubmission{
+		Mode:          EditSubmissionModeStage,
+		CommitOptions: api.CommitOptions{ChangesNotSentForReview: true},
+	})
+	wantErr := "failed to save edit \"edit-123\" in Play Console as not yet sent for review: Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.; no live commit was attempted and the edit remains open"
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("applyEditSubmission() error = %v, want %q", err, wantErr)
+	}
+	if edit.commitWithOptionsCalls != 1 {
+		t.Fatalf("CommitWithOptions call count = %d, want 1", edit.commitWithOptionsCalls)
+	}
+	if !edit.lastCommitOptions.ChangesNotSentForReview {
+		t.Fatalf("last CommitWithOptions.ChangesNotSentForReview = false, want true")
+	}
+	if edit.commitCalls != 0 {
+		t.Fatalf("Commit call count = %d, want 0", edit.commitCalls)
+	}
+}
+
+func TestApplyEditSubmissionStageFailureExplainsAutoReviewRequirement(t *testing.T) {
+	edit := &fakeEditCommitter{
+		id: "edit-789",
 		commitWithOptionsErr: &googleapi.Error{
 			Code:    400,
 			Message: "Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.",
@@ -175,27 +201,40 @@ func TestApplyEditSubmissionFallsBackWhenStageIsAutoReviewed(t *testing.T) {
 		Mode:          EditSubmissionModeStage,
 		CommitOptions: api.CommitOptions{ChangesNotSentForReview: true},
 	})
+	wantErr := "failed to save edit \"edit-789\" in Play Console as not yet sent for review: googleapi: Error 400: Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.; no live commit was attempted and the edit remains open\nPlay Console is currently requiring automatic review submission for this app, so --edit-mode=stage is unavailable for this edit.\nCheck Publishing overview for existing pending changes, changes already in review, changes ready to publish, or an update status that forces the normal review path"
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("applyEditSubmission() error = %v, want %q", err, wantErr)
+	}
+	if edit.commitCalls != 0 {
+		t.Fatalf("Commit call count = %d, want 0", edit.commitCalls)
+	}
+}
+
+func TestIsAutoReviewOnlyCommitError(t *testing.T) {
+	err := &googleapi.Error{
+		Code:    400,
+		Message: "Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.",
+	}
+	if !isAutoReviewOnlyCommitError(err) {
+		t.Fatalf("isAutoReviewOnlyCommitError() = false, want true")
+	}
+}
+
+func TestApplyEditSubmissionLiveModeStillUsesNormalCommitPath(t *testing.T) {
+	edit := &fakeEditCommitter{id: "edit-456"}
+
+	err := applyEditSubmission(edit, EditSubmission{Mode: EditSubmissionModeLive})
 	if err != nil {
 		t.Fatalf("applyEditSubmission() error = %v", err)
 	}
 	if edit.commitWithOptionsCalls != 1 {
 		t.Fatalf("CommitWithOptions call count = %d, want 1", edit.commitWithOptionsCalls)
 	}
-	if !edit.lastCommitOptions.ChangesNotSentForReview {
-		t.Fatalf("last CommitWithOptions.ChangesNotSentForReview = false, want true")
+	if edit.lastCommitOptions.ChangesNotSentForReview {
+		t.Fatalf("last CommitWithOptions.ChangesNotSentForReview = true, want false")
 	}
-	if edit.commitCalls != 1 {
-		t.Fatalf("Commit call count = %d, want 1", edit.commitCalls)
-	}
-}
-
-func TestIsAutoReviewCommitError(t *testing.T) {
-	err := &googleapi.Error{
-		Code:    400,
-		Message: "Changes are sent for review automatically. The query parameter changesNotSentForReview must not be set.",
-	}
-	if !isAutoReviewCommitError(err) {
-		t.Fatalf("isAutoReviewCommitError() = false, want true")
+	if edit.commitCalls != 0 {
+		t.Fatalf("Commit call count = %d, want 0", edit.commitCalls)
 	}
 }
 

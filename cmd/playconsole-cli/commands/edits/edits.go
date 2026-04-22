@@ -23,7 +23,7 @@ Workflow:
   1. gpc edits create    - Start a new edit session
   2. Make changes with supported commands using --edit-mode=open
   3. gpc edits validate  - Validate changes before committing
-  4. gpc edits commit    - Commit changes live or stage them for later review`,
+  4. gpc edits commit    - Commit changes live or save them as not yet sent for review`,
 }
 
 var createCmd = &cobra.Command{
@@ -114,7 +114,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			"Make changes with supported commands using --edit-mode=open",
 			fmt.Sprintf("Validate: gpc edits validate --edit-id %s", edit.ID()),
 			fmt.Sprintf("Commit live: gpc edits commit --edit-id %s", edit.ID()),
-			fmt.Sprintf("Commit staged: gpc edits commit --edit-id %s --edit-mode=stage", edit.ID()),
+			fmt.Sprintf("Commit as draft: gpc edits commit --edit-id %s --edit-mode=stage", edit.ID()),
 		},
 	})
 }
@@ -186,7 +186,7 @@ func runCommit(cmd *cobra.Command, args []string) error {
 
 	if cli.IsDryRun() {
 		if submission.Mode == cli.EditSubmissionModeStage {
-			output.PrintInfo("Dry run: would commit edit '%s' and stage changes in Play Console (not sent for review)", editID)
+			output.PrintInfo("Dry run: would commit edit '%s' and save changes in Play Console as not yet sent for review", editID)
 		} else {
 			output.PrintInfo("Dry run: would commit edit '%s'", editID)
 		}

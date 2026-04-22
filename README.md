@@ -114,7 +114,7 @@ gpc tracks promote --from internal --to production --rollout-percentage 10
 
 ```bash
 gpc bundles upload --file app.aab --track internal    # Upload
-gpc bundles upload --file app.aab --track production --edit-mode=stage  # Commit and stage for later review
+gpc bundles upload --file app.aab --track production --edit-mode=stage  # Commit and save as not yet sent for review
 gpc bundles upload --file app.aab --track production --edit-mode=open   # Leave edit open
 gpc bundles find --version-code 42                     # Find by version code
 gpc bundles wait --version-code 42                     # Wait for processing
@@ -200,9 +200,9 @@ Use `--edit-mode` on edit-backed mutating commands to control how the edit is fi
 
 ```bash
 gpc bundles upload --file app.aab --track production                    # live (default)
-gpc bundles upload --file app.aab --track production --edit-mode=stage  # commit without sending for review
+gpc bundles upload --file app.aab --track production --edit-mode=stage  # commit and keep changes not yet sent for review
 gpc bundles upload --file app.aab --track production --edit-mode=open   # leave the edit open
-gpc edits commit --edit-id EDIT_ID --edit-mode=stage                    # finalize an existing edit in stage mode
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage                    # finalize an existing edit without sending it for review
 ```
 
 During rollout, existing `--stage` and `--commit=false` flags still work as compatibility aliases, but prefer `--edit-mode=stage` and `--edit-mode=open`.
@@ -220,7 +220,7 @@ gpc users grant --email "dev@company.com" --role releaseManager
 gpc doctor                                             # Validate setup
 gpc init --package com.example.app                     # Create project config
 gpc diff                                               # Compare draft vs live
-gpc edits commit --edit-id EDIT_ID --edit-mode=stage   # Commit an existing edit without sending for review
+gpc edits commit --edit-id EDIT_ID --edit-mode=stage   # Commit an existing edit and keep it not yet sent for review
 gpc recovery list                                      # App recovery actions
 gpc completion zsh > "${fpath[1]}/_gpc"                # Shell completions
 ```

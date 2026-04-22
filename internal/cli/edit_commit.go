@@ -21,7 +21,7 @@ const (
 	EditSubmissionModeOpen  EditSubmissionMode = "open"
 )
 
-const stageFlagUsage = "commit the edit and stage changes in Play Console without sending for review"
+const stageFlagUsage = "commit the edit and save changes in Play Console as not yet sent for review"
 
 type EditSubmission struct {
 	Mode          EditSubmissionMode
@@ -81,13 +81,8 @@ func applyEditSubmission(edit editCommitter, submission EditSubmission) error {
 	}
 
 	if err := edit.CommitWithOptions(submission.CommitOptions); err != nil {
-		if submission.Mode == EditSubmissionModeStage && isAutoReviewCommitError(err) {
-			output.PrintWarning("Play Console auto-sends these changes for review; retrying commit without staging")
-			if retryErr := edit.Commit(); retryErr != nil {
-				return retryErr
-			}
-			output.PrintSuccess("Edit committed (Play Console sent changes for review automatically)")
-			return nil
+		if submission.Mode == EditSubmissionModeStage {
+			return formatStageCommitError(edit.ID(), err)
 		}
 		return err
 	}
@@ -96,10 +91,19 @@ func applyEditSubmission(edit editCommitter, submission EditSubmission) error {
 	return nil
 }
 
-func isAutoReviewCommitError(err error) bool {
+func formatStageCommitError(editID string, err error) error {
+	message := fmt.Sprintf("failed to save edit %q in Play Console as not yet sent for review: %v; no live commit was attempted and the edit remains open", editID, err)
+
+	if isAutoReviewOnlyCommitError(err) {
+		return fmt.Errorf("%s\nPlay Console is currently requiring automatic review submission for this app, so --edit-mode=stage is unavailable for this edit.\nCheck Publishing overview for existing pending changes, changes already in review, changes ready to publish, or an update status that forces the normal review path", message)
+	}
+
+	return fmt.Errorf("%s", message)
+}
+
+func isAutoReviewOnlyCommitError(err error) bool {
 	var apiErr *googleapi.Error
-	ok := errors.As(err, &apiErr)
-	if !ok {
+	if !errors.As(err, &apiErr) {
 		return false
 	}
 	if apiErr.Code != 400 {
