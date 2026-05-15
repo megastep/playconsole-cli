@@ -21,7 +21,9 @@ func TestRootCmdBindsEditModeFlagToViper(t *testing.T) {
 	t.Cleanup(func() {
 		_ = GetRootCmd().PersistentFlags().Set("edit-mode", "live")
 	})
-	viper.BindPFlag("edit-mode", GetRootCmd().PersistentFlags().Lookup("edit-mode"))
+	if err := viper.BindPFlag("edit-mode", GetRootCmd().PersistentFlags().Lookup("edit-mode")); err != nil {
+		t.Fatalf("bind edit-mode flag: %v", err)
+	}
 
 	if err := GetRootCmd().PersistentFlags().Set("edit-mode", "stage"); err != nil {
 		t.Fatalf("set edit-mode flag: %v", err)
