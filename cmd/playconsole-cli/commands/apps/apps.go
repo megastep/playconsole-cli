@@ -71,7 +71,8 @@ func runList(cmd *cobra.Command, args []string) error {
 }
 
 func fetchApps() ([]AppInfo, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), cli.ResolveTimeout(60*time.Second))
+	defer cancel()
 
 	// Get credentials
 	creds, err := config.GetCredentials()
@@ -134,7 +135,9 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete() // Don't commit, just checking access
+	defer func() {
+		_ = edit.Delete() // Don't commit, just checking access
+	}()
 
 	// Get app details
 	detailsCtx, cancel := edit.RequestContext()

@@ -61,21 +61,21 @@ var editID string
 func init() {
 	// Get flags
 	getCmd.Flags().StringVar(&editID, "edit-id", "", "edit ID")
-	getCmd.MarkFlagRequired("edit-id")
+	cli.MustMarkFlagRequired(getCmd, "edit-id")
 
 	// Validate flags
 	validateCmd.Flags().StringVar(&editID, "edit-id", "", "edit ID")
-	validateCmd.MarkFlagRequired("edit-id")
+	cli.MustMarkFlagRequired(validateCmd, "edit-id")
 
 	// Commit flags
 	commitCmd.Flags().StringVar(&editID, "edit-id", "", "edit ID")
 	cli.AddStageFlag(commitCmd)
-	commitCmd.MarkFlagRequired("edit-id")
+	cli.MustMarkFlagRequired(commitCmd, "edit-id")
 
 	// Delete flags
 	deleteCmd.Flags().StringVar(&editID, "edit-id", "", "edit ID")
 	deleteCmd.Flags().Bool("confirm", false, "confirm deletion")
-	deleteCmd.MarkFlagRequired("edit-id")
+	cli.MustMarkFlagRequired(deleteCmd, "edit-id")
 
 	EditsCmd.AddCommand(createCmd)
 	EditsCmd.AddCommand(getCmd)

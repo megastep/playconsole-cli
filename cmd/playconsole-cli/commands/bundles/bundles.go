@@ -76,17 +76,17 @@ func init() {
 	uploadCmd.Flags().StringVar(&releaseNotes, "release-notes", "", "release notes text")
 	uploadCmd.Flags().StringVar(&releaseNotesLang, "release-notes-lang", "en-US", "release notes language")
 	uploadCmd.Flags().Float64Var(&rolloutPct, "rollout", 100, "rollout percentage (only for production)")
-	uploadCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(uploadCmd, "file")
 
 	// Find flags
 	findCmd.Flags().Int64Var(&versionCode, "version-code", 0, "version code to find")
-	findCmd.MarkFlagRequired("version-code")
+	cli.MustMarkFlagRequired(findCmd, "version-code")
 
 	// Wait flags
 	waitCmd.Flags().Int64Var(&versionCode, "version-code", 0, "version code to wait for")
 	waitCmd.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "maximum time to wait")
 	waitCmd.Flags().DurationVar(&pollInterval, "interval", 15*time.Second, "polling interval")
-	waitCmd.MarkFlagRequired("version-code")
+	cli.MustMarkFlagRequired(waitCmd, "version-code")
 
 	BundlesCmd.AddCommand(uploadCmd)
 	BundlesCmd.AddCommand(listCmd)
@@ -152,7 +152,9 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	output.PrintInfo("Uploading bundle: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
@@ -226,7 +228,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	bundles, err := edit.Bundles().List(client.GetPackageName(), edit.ID()).Context(edit.Context()).Do()
 	if err != nil {
@@ -265,7 +269,9 @@ func runFind(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	bundles, err := edit.Bundles().List(client.GetPackageName(), edit.ID()).Context(edit.Context()).Do()
 	if err != nil {

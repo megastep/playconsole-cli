@@ -30,7 +30,8 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -38,7 +39,8 @@ archives:
       {{- .Arch }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE
@@ -65,6 +67,7 @@ brews:
       owner: AndroidPoet
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
     homepage: https://github.com/AndroidPoet/playconsole-cli
     description: "Fast, lightweight, and scriptable CLI for Google Play Console"
     license: MIT
@@ -73,11 +76,25 @@ brews:
       bin.install_symlink "playconsole-cli" => "gpc"
     test: |
       system "#{bin}/gpc", "version"
+  - name: gpc
+    repository:
+      owner: AndroidPoet
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/AndroidPoet/playconsole-cli
+    description: "Alias for playconsole-cli"
+    license: MIT
+    install: |
+      bin.install "playconsole-cli" => "gpc"
+    test: |
+      system "#{bin}/gpc", "version"
 
 nfpms:
   - id: packages
     package_name: playconsole-cli
     vendor: AndroidPoet
+    maintainer: AndroidPoet
     homepage: https://github.com/AndroidPoet/playconsole-cli
     description: "Fast, lightweight, and scriptable CLI for Google Play Console"
     license: MIT

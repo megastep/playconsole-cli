@@ -104,8 +104,8 @@ func init() {
 	// List flags
 	listCmd.Flags().StringVar(&locale, "locale", "", "locale code (e.g., en-US)")
 	listCmd.Flags().StringVar(&imageType, "type", "", "image type")
-	listCmd.MarkFlagRequired("locale")
-	listCmd.MarkFlagRequired("type")
+	cli.MustMarkFlagRequired(listCmd, "locale")
+	cli.MustMarkFlagRequired(listCmd, "type")
 
 	// Upload flags
 	uploadCmd.Flags().StringVar(&locale, "locale", "", "locale code")
@@ -113,9 +113,9 @@ func init() {
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to image file")
 	uploadCmd.Flags().BoolVar(&showProgress, "progress", false, "show upload progress")
 	cli.AddStageFlag(uploadCmd)
-	uploadCmd.MarkFlagRequired("locale")
-	uploadCmd.MarkFlagRequired("type")
-	uploadCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(uploadCmd, "locale")
+	cli.MustMarkFlagRequired(uploadCmd, "type")
+	cli.MustMarkFlagRequired(uploadCmd, "file")
 
 	// Delete flags
 	deleteCmd.Flags().StringVar(&locale, "locale", "", "locale code")
@@ -123,24 +123,24 @@ func init() {
 	deleteCmd.Flags().StringVar(&imageID, "id", "", "image ID to delete")
 	cli.AddStageFlag(deleteCmd)
 	deleteCmd.Flags().Bool("confirm", false, "confirm deletion")
-	deleteCmd.MarkFlagRequired("locale")
-	deleteCmd.MarkFlagRequired("type")
-	deleteCmd.MarkFlagRequired("id")
+	cli.MustMarkFlagRequired(deleteCmd, "locale")
+	cli.MustMarkFlagRequired(deleteCmd, "type")
+	cli.MustMarkFlagRequired(deleteCmd, "id")
 
 	// Delete all flags
 	deleteAllCmd.Flags().StringVar(&locale, "locale", "", "locale code")
 	deleteAllCmd.Flags().StringVar(&imageType, "type", "", "image type")
 	cli.AddStageFlag(deleteAllCmd)
 	deleteAllCmd.Flags().Bool("confirm", false, "confirm deletion")
-	deleteAllCmd.MarkFlagRequired("locale")
-	deleteAllCmd.MarkFlagRequired("type")
+	cli.MustMarkFlagRequired(deleteAllCmd, "locale")
+	cli.MustMarkFlagRequired(deleteAllCmd, "type")
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing images")
 	syncCmd.Flags().BoolVar(&showProgress, "progress", false, "show upload progress for each file")
 	cli.AddStageFlag(syncCmd)
 	syncCmd.Flags().BoolVar(&replaceExisting, "replace", false, "replace existing remote images for each synced locale/type")
-	syncCmd.MarkFlagRequired("dir")
+	cli.MustMarkFlagRequired(syncCmd, "dir")
 
 	ImagesCmd.AddCommand(listCmd)
 	ImagesCmd.AddCommand(uploadCmd)
@@ -269,7 +269,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	images, err := edit.Images().List(client.GetPackageName(), edit.ID(), locale, imageType).Context(edit.Context()).Do()
 	if err != nil {
@@ -338,7 +340,9 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	output.PrintInfo("Uploading: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
@@ -483,8 +487,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not a directory: %s", absDir)
 	}
 
-	uploaded := 0
-	mutated := false
+	failures := make([]string, 0)
 
 	// Walk directory: locale/imageType/files
 	locales, err := os.ReadDir(absDir)
@@ -526,7 +529,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 			typeDir := filepath.Join(localeDir, typeName)
 			fileNames, err := collectValidImageFiles(typeDir)
 			if err != nil {
-				output.PrintWarning("Failed to collect images from %s: %v", typeDir, err)
+				failures = append(failures, fmt.Sprintf("%s/%s: %v", localeName, typeName, err))
 				continue
 			}
 
@@ -559,8 +562,12 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if len(failures) > 0 {
+		return fmt.Errorf("image sync aborted; no changes committed. Failures: %s", strings.Join(failures, "; "))
+	}
+
 	if len(batches) == 0 {
-		output.PrintSuccess("Uploaded %d image(s)", uploaded)
+		output.PrintSuccess("Uploaded %d image(s)", 0)
 		return nil
 	}
 
@@ -575,6 +582,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	defer edit.Close()
 
+	uploaded := 0
+	mutated := false
+
 	for _, batch := range batches {
 		if replaceExisting {
 			output.PrintInfo("Replacing existing images for %s/%s", batch.locale, batch.imageType)
@@ -582,7 +592,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 			_, err := edit.Images().Deleteall(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Context(ctx).Do()
 			cancel()
 			if err != nil {
-				output.PrintWarning("Failed to delete existing images for %s/%s: %v", batch.locale, batch.imageType, err)
+				failures = append(failures, fmt.Sprintf("%s/%s: failed to clear existing images: %v", batch.locale, batch.imageType, err))
 				continue
 			}
 			mutated = true
@@ -592,13 +602,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 			filePath := filepath.Join(absDir, batch.locale, batch.imageType, fileName)
 			fileInfo, err := os.Stat(filePath)
 			if err != nil {
-				output.PrintWarning("Failed to stat %s: %v", filePath, err)
+				failures = append(failures, fmt.Sprintf("%s/%s/%s: %v", batch.locale, batch.imageType, fileName, err))
 				continue
 			}
 
 			file, err := os.Open(filePath)
 			if err != nil {
-				output.PrintWarning("Failed to open %s: %v", filePath, err)
+				failures = append(failures, fmt.Sprintf("%s/%s/%s: %v", batch.locale, batch.imageType, fileName, err))
 				continue
 			}
 
@@ -610,10 +620,14 @@ func runSync(cmd *cobra.Command, args []string) error {
 			ctx, cancel := edit.RequestContext()
 			_, err = edit.Images().Upload(client.GetPackageName(), edit.ID(), batch.locale, batch.imageType).Media(reader).Context(ctx).Do()
 			cancel()
-			file.Close()
+			closeErr := file.Close()
 
 			if err != nil {
-				output.PrintWarning("Failed to upload %s: %v", fileName, err)
+				failures = append(failures, fmt.Sprintf("%s/%s/%s: %v", batch.locale, batch.imageType, fileName, err))
+				continue
+			}
+			if closeErr != nil {
+				failures = append(failures, fmt.Sprintf("%s/%s/%s: failed to close file: %v", batch.locale, batch.imageType, fileName, closeErr))
 				continue
 			}
 
@@ -621,6 +635,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 			uploaded++
 			mutated = true
 		}
+	}
+
+	if len(failures) > 0 {
+		if err := edit.Delete(); err != nil {
+			return fmt.Errorf("image sync aborted with failures and failed to delete edit: %v; failures: %s", err, strings.Join(failures, "; "))
+		}
+		return fmt.Errorf("image sync aborted; no changes committed. Failures: %s", strings.Join(failures, "; "))
 	}
 
 	if mutated {

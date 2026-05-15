@@ -91,24 +91,24 @@ var (
 func init() {
 	// Testers list flags
 	testersListCmd.Flags().StringVar(&trackName, "track", "", "track name (alpha, beta, etc.)")
-	testersListCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(testersListCmd, "track")
 
 	// Testers add flags
 	testersAddCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	testersAddCmd.Flags().StringVar(&emails, "emails", "", "comma-separated email addresses")
 	testersAddCmd.Flags().StringVar(&emailsFile, "emails-file", "", "file containing email addresses (one per line)")
 	cli.AddStageFlag(testersAddCmd)
-	testersAddCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(testersAddCmd, "track")
 
 	// Testers remove flags
 	testersRemoveCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	testersRemoveCmd.Flags().StringVar(&emails, "emails", "", "comma-separated email addresses")
 	cli.AddStageFlag(testersRemoveCmd)
-	testersRemoveCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(testersRemoveCmd, "track")
 
 	// Internal sharing upload flags
 	internalSharingUploadCmd.Flags().StringVar(&filePath, "file", "", "path to APK/AAB file")
-	internalSharingUploadCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(internalSharingUploadCmd, "file")
 
 	// Build command tree
 	internalCmd.AddCommand(internalListCmd)
@@ -141,7 +141,9 @@ func runInternalList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	// Get the internal track
 	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), "internal").Context(edit.Context()).Do()
@@ -204,7 +206,9 @@ func runInternalSharingUpload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	output.PrintInfo("Uploading for internal sharing: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
@@ -248,7 +252,9 @@ func runTestersList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	testers, err := edit.Testers().Get(client.GetPackageName(), edit.ID(), trackName).Context(edit.Context()).Do()
 	if err != nil {

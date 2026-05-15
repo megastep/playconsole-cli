@@ -83,29 +83,29 @@ func init() {
 
 	// Get flags
 	getCmd.Flags().StringVar(&productID, "product-id", "", "subscription product ID")
-	getCmd.MarkFlagRequired("product-id")
+	cli.MustMarkFlagRequired(getCmd, "product-id")
 
 	// Create flags
 	createCmd.Flags().StringVar(&productID, "product-id", "", "subscription product ID")
 	createCmd.Flags().StringVar(&filePath, "file", "", "JSON file with subscription definition")
-	createCmd.MarkFlagRequired("product-id")
-	createCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(createCmd, "product-id")
+	cli.MustMarkFlagRequired(createCmd, "file")
 
 	// Base plans list flags
 	basePlansListCmd.Flags().StringVar(&productID, "product-id", "", "subscription product ID")
-	basePlansListCmd.MarkFlagRequired("product-id")
+	cli.MustMarkFlagRequired(basePlansListCmd, "product-id")
 
 	// Base plans create flags
 	basePlansCreateCmd.Flags().StringVar(&productID, "product-id", "", "subscription product ID")
 	basePlansCreateCmd.Flags().StringVar(&filePath, "file", "", "JSON file with base plan definition")
-	basePlansCreateCmd.MarkFlagRequired("product-id")
-	basePlansCreateCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(basePlansCreateCmd, "product-id")
+	cli.MustMarkFlagRequired(basePlansCreateCmd, "file")
 
 	// Pricing get flags
 	pricingGetCmd.Flags().StringVar(&productID, "product-id", "", "subscription product ID")
 	pricingGetCmd.Flags().StringVar(&basePlanID, "base-plan", "", "base plan ID")
-	pricingGetCmd.MarkFlagRequired("product-id")
-	pricingGetCmd.MarkFlagRequired("base-plan")
+	cli.MustMarkFlagRequired(pricingGetCmd, "product-id")
+	cli.MustMarkFlagRequired(pricingGetCmd, "base-plan")
 
 	// Build command tree
 	basePlansCmd.AddCommand(basePlansListCmd)
@@ -214,7 +214,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	ctx, cancel := client.Context()
 	defer cancel()
 
-	created, err := client.Monetization().Subscriptions.Create(client.GetPackageName(), &sub).ProductId(productID).Context(ctx).Do()
+	created, err := client.Monetization().Subscriptions.Create(client.GetPackageName(), &sub).ProductId(productID).RegionsVersionVersion("2022/02").Context(ctx).Do()
 	if err != nil {
 		return err
 	}
@@ -302,7 +302,7 @@ func runBasePlansCreate(cmd *cobra.Command, args []string) error {
 	sub.BasePlans = append(sub.BasePlans, &basePlan)
 
 	// Update subscription
-	updated, err := client.Monetization().Subscriptions.Patch(client.GetPackageName(), productID, sub).UpdateMask("basePlans").Context(ctx).Do()
+	updated, err := client.Monetization().Subscriptions.Patch(client.GetPackageName(), productID, sub).UpdateMask("basePlans").RegionsVersionVersion("2022/02").Context(ctx).Do()
 	if err != nil {
 		return err
 	}

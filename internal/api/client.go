@@ -30,7 +30,13 @@ type debugTransport struct {
 
 func (t *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	fmt.Printf("DEBUG: %s %s\n", req.Method, req.URL)
-	return t.base.RoundTrip(req)
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		fmt.Printf("DEBUG: request failed: %v\n", err)
+		return nil, err
+	}
+	fmt.Printf("DEBUG: response %s\n", resp.Status)
+	return resp, nil
 }
 
 func resolveConfiguredTimeout(fallback time.Duration) (time.Duration, error) {

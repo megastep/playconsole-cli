@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ var (
 func init() {
 	// Get flags
 	getCmd.Flags().StringVar(&locale, "locale", "", "locale code (e.g., en-US)")
-	getCmd.MarkFlagRequired("locale")
+	cli.MustMarkFlagRequired(getCmd, "locale")
 
 	// Update flags
 	updateCmd.Flags().StringVar(&locale, "locale", "", "locale code")
@@ -79,12 +80,12 @@ func init() {
 	updateCmd.Flags().StringVar(&fullDesc, "full-description", "", "full description")
 	updateCmd.Flags().StringVar(&fullDescFile, "full-description-file", "", "file containing full description")
 	cli.AddStageFlag(updateCmd)
-	updateCmd.MarkFlagRequired("locale")
+	cli.MustMarkFlagRequired(updateCmd, "locale")
 
 	// Sync flags
 	syncCmd.Flags().StringVar(&syncDir, "dir", "", "directory containing metadata")
 	cli.AddStageFlag(syncCmd)
-	syncCmd.MarkFlagRequired("dir")
+	cli.MustMarkFlagRequired(syncCmd, "dir")
 
 	ListingsCmd.AddCommand(listCmd)
 	ListingsCmd.AddCommand(getCmd)
@@ -115,7 +116,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	listings, err := edit.Listings().List(client.GetPackageName(), edit.ID()).Context(edit.Context()).Do()
 	if err != nil {
@@ -154,7 +157,9 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	listing, err := edit.Listings().Get(client.GetPackageName(), edit.ID(), locale).Context(edit.Context()).Do()
 	if err != nil {
@@ -288,6 +293,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	defer edit.Close()
 
 	updated := 0
+	failures := make([]string, 0)
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -330,12 +336,16 @@ func runSync(cmd *cobra.Command, args []string) error {
 		_, err := edit.Listings().Update(client.GetPackageName(), edit.ID(), localeName, listing).Context(ctx).Do()
 		cancel()
 		if err != nil {
-			output.PrintWarning("Failed to update locale '%s': %v", localeName, err)
+			failures = append(failures, fmt.Sprintf("%s: %v", localeName, err))
 			continue
 		}
 
 		output.PrintInfo("Updated: %s", localeName)
 		updated++
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("listing sync aborted; no changes committed. Failures: %s", strings.Join(failures, "; "))
 	}
 
 	if !cli.IsDryRun() && updated > 0 {

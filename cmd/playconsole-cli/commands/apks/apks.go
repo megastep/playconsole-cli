@@ -46,7 +46,7 @@ func init() {
 	uploadCmd.Flags().StringVar(&trackName, "track", "", "track to assign")
 	uploadCmd.Flags().Bool("commit", true, "automatically commit the edit")
 	cli.AddStageFlag(uploadCmd)
-	uploadCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(uploadCmd, "file")
 
 	APKsCmd.AddCommand(uploadCmd)
 	APKsCmd.AddCommand(listCmd)
@@ -114,7 +114,9 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	output.PrintInfo("Uploading APK: %s (%d bytes)", filepath.Base(absPath), info.Size())
 
@@ -176,7 +178,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	apks, err := edit.APKs().List(client.GetPackageName(), edit.ID()).Context(edit.Context()).Do()
 	if err != nil {

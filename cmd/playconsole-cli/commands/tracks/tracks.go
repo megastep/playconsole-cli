@@ -78,7 +78,7 @@ func init() {
 
 	// Get flags
 	getCmd.Flags().StringVar(&trackName, "track", "", "track name (internal, alpha, beta, production)")
-	getCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(getCmd, "track")
 
 	// Update flags
 	updateCmd.Flags().StringVar(&trackName, "track", "", "track name")
@@ -89,7 +89,7 @@ func init() {
 	updateCmd.Flags().StringVar(&releaseNotesLang, "release-notes-lang", "en-US", "release notes language")
 	updateCmd.Flags().StringVar(&status, "status", "completed", "release status (draft, inProgress, halted, completed)")
 	cli.AddStageFlag(updateCmd)
-	updateCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(updateCmd, "track")
 
 	// Promote flags
 	promoteCmd.Flags().StringVar(&fromTrack, "from", "", "source track")
@@ -97,18 +97,18 @@ func init() {
 	promoteCmd.Flags().Int64Var(&versionCode, "version-code", 0, "specific version code to promote (optional)")
 	promoteCmd.Flags().Float64Var(&rolloutPercentage, "rollout-percentage", 100, "rollout percentage")
 	cli.AddStageFlag(promoteCmd)
-	promoteCmd.MarkFlagRequired("from")
-	promoteCmd.MarkFlagRequired("to")
+	cli.MustMarkFlagRequired(promoteCmd, "from")
+	cli.MustMarkFlagRequired(promoteCmd, "to")
 
 	// Halt flags
 	haltCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	cli.AddStageFlag(haltCmd)
-	haltCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(haltCmd, "track")
 
 	// Complete flags
 	completeCmd.Flags().StringVar(&trackName, "track", "", "track name")
 	cli.AddStageFlag(completeCmd)
-	completeCmd.MarkFlagRequired("track")
+	cli.MustMarkFlagRequired(completeCmd, "track")
 
 	TracksCmd.AddCommand(listCmd)
 	TracksCmd.AddCommand(getCmd)
@@ -142,7 +142,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	tracks, err := edit.Tracks().List(client.GetPackageName(), edit.ID()).Context(edit.Context()).Do()
 	if err != nil {
@@ -190,7 +192,9 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer edit.Close()
-	defer edit.Delete()
+	defer func() {
+		_ = edit.Delete()
+	}()
 
 	track, err := edit.Tracks().Get(client.GetPackageName(), edit.ID(), trackName).Context(edit.Context()).Do()
 	if err != nil {

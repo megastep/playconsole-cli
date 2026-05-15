@@ -47,8 +47,8 @@ func init() {
 	uploadCmd.Flags().StringVar(&filePath, "file", "", "path to mapping file")
 	uploadCmd.Flags().StringVar(&fileType, "type", "proguard", "file type: proguard, native-code")
 	cli.AddStageFlag(uploadCmd)
-	uploadCmd.MarkFlagRequired("version-code")
-	uploadCmd.MarkFlagRequired("file")
+	cli.MustMarkFlagRequired(uploadCmd, "version-code")
+	cli.MustMarkFlagRequired(uploadCmd, "file")
 
 	DeobfuscationCmd.AddCommand(uploadCmd)
 }
@@ -106,7 +106,9 @@ func runUpload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Upload
 	resp, err := edit.DeobfuscationFiles().Upload(

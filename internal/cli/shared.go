@@ -2,9 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/AndroidPoet/playconsole-cli/internal/config"
 )
 
 var (
@@ -39,7 +42,13 @@ func GetPackageName() string {
 	if packageName != "" {
 		return packageName
 	}
-	return viper.GetString("package")
+	if pkg := viper.GetString("package"); pkg != "" {
+		return pkg
+	}
+	if profile := config.GetProfile(); profile != nil {
+		return profile.DefaultPackage
+	}
+	return ""
 }
 
 // GetProfile returns the profile name from flag, env, or config
@@ -66,6 +75,20 @@ func GetTimeout() string {
 	return t
 }
 
+// ResolveTimeout returns an explicit user timeout when present, otherwise fallback.
+func ResolveTimeout(fallback time.Duration) time.Duration {
+	if timeout == "" {
+		return fallback
+	}
+
+	parsed, err := time.ParseDuration(timeout)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+
+	return parsed
+}
+
 // IsDryRun returns whether dry-run mode is enabled
 func IsDryRun() bool {
 	return dryRun
@@ -87,4 +110,18 @@ func CheckConfirm(cmd *cobra.Command) error {
 		return fmt.Errorf("this is a destructive operation. Use --confirm to proceed")
 	}
 	return nil
+}
+
+// MustMarkFlagRequired marks a flag as required during command initialization.
+func MustMarkFlagRequired(cmd *cobra.Command, name string) {
+	if err := cmd.MarkFlagRequired(name); err != nil {
+		panic(fmt.Sprintf("failed to mark flag %q as required on %q: %v", name, cmd.Name(), err))
+	}
+}
+
+// MustMarkPersistentFlagRequired marks a persistent flag as required during command initialization.
+func MustMarkPersistentFlagRequired(cmd *cobra.Command, name string) {
+	if err := cmd.MarkPersistentFlagRequired(name); err != nil {
+		panic(fmt.Sprintf("failed to mark persistent flag %q as required on %q: %v", name, cmd.Name(), err))
+	}
 }
